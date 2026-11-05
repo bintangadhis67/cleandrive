@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'app_state.dart';
 import 'screens.dart';
+import 'theme.dart';
 
 void main() => runApp(const CleanDriveApp());
 
@@ -10,7 +11,7 @@ class CleanDriveApp extends StatelessWidget {
   Widget build(BuildContext context) => MaterialApp(
         title: 'CleanDrive',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.teal),
+        theme: buildTheme(),
         home: ListenableBuilder(
           listenable: app,
           builder: (_, __) => app.user == null
