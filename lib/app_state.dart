@@ -9,6 +9,9 @@ class AppState extends ChangeNotifier {
   static const maxPerSlot = 3;
 
   String? user;
+  String email = '';
+  String phone = '';
+  String _pass = '';
   bool isAdmin = false;
   final List<Booking> bookings = [];
 
@@ -18,11 +21,36 @@ class AppState extends ChangeNotifier {
     if (isAdminEmail && pass != adminPass) return false;
     isAdmin = isAdminEmail;
     user = isAdmin ? 'Admin' : name;
+    this.email = email.trim();
+    _pass = pass;
     notifyListeners();
     return true;
   }
 
-  void logout() { user = null; isAdmin = false; notifyListeners(); }
+  void logout() {
+    user = null;
+    isAdmin = false;
+    email = '';
+    phone = '';
+    notifyListeners();
+  }
+
+  // TODO API: PUT /api/profile
+  void updateProfile(String name, String phoneNumber) {
+    for (final b in bookings) {
+      if (b.owner == user) b.owner = name;
+    }
+    user = name;
+    phone = phoneNumber;
+    notifyListeners();
+  }
+
+  // TODO API: PUT /api/password
+  bool changePassword(String oldPass, String newPass) {
+    if (oldPass != _pass) return false;
+    _pass = newPass;
+    return true;
+  }
 
   // TODO API: GET /api/bookings (konsumen: milik sendiri, admin: semua)
   List<Booking> get myBookings => bookings.where((b) => b.owner == user).toList();

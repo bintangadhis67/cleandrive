@@ -21,7 +21,8 @@ const packages = [
 const statusLabels = ['Menunggu', 'Dicuci', 'Finishing', 'Selesai'];
 
 class Booking {
-  final String id, code, plate, owner;
+  final String id, code, plate;
+  String owner;
   final VehicleType vehicle;
   final WashPackage pack;
   final DateTime slot, estFinish;
