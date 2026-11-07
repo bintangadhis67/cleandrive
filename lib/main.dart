@@ -1,11 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/date_symbol_data_local.dart';
+
+import 'admin.dart';
 import 'app_state.dart';
+import 'auth.dart';
 import 'customer.dart';
-import 'screens.dart';
+import 'data/mock_repository.dart';
 import 'theme.dart';
 
-void main() => runApp(const CleanDriveApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('id_ID');
+  // Frontend berdiri sendiri: semua data memakai MockRepository (data tiruan di memori).
+  // Saat nanti diintegrasikan dengan backend, cukup ganti dengan Repository yang memanggil API.
+  app.init(MockRepository());
+  runApp(const CleanDriveApp());
+}
 
 class CleanDriveApp extends StatelessWidget {
   const CleanDriveApp({super.key});
@@ -26,6 +37,7 @@ class _Root extends StatefulWidget {
 
 class _RootState extends State<_Root> {
   bool _splash = true;
+  bool _onboarded = false;
 
   @override
   void initState() {
@@ -38,15 +50,17 @@ class _RootState extends State<_Root> {
   @override
   Widget build(BuildContext context) => AnimatedSwitcher(
         duration: const Duration(milliseconds: 450),
-        child: _splash
-            ? const SplashScreen(key: ValueKey('splash'))
-            : ListenableBuilder(
-                key: const ValueKey('root'),
-                listenable: app,
-                builder: (_, __) => app.user == null
-                    ? const AuthScreen()
-                    : (app.isAdmin ? const AdminScreen() : const HomeScreen()),
-              ),
+        child: ListenableBuilder(
+          key: ValueKey(_splash || app.booting),
+          listenable: app,
+          builder: (_, __) {
+            if (_splash || app.booting) return const SplashScreen();
+            if (app.me == null) {
+              return _onboarded ? const AuthScreen() : OnboardingScreen(onDone: () => setState(() => _onboarded = true));
+            }
+            return app.isAdmin ? const AdminScreen() : const HomeScreen();
+          },
+        ),
       );
 }
 
@@ -58,9 +72,9 @@ class SplashScreen extends StatelessWidget {
         body: Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(28)),
-              child: Image.asset('assets/logo.png', width: 280, fit: BoxFit.contain),
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(32)),
+              child: Image.asset('assets/logo.png', width: 220, fit: BoxFit.contain),
             ),
             const SizedBox(height: 28),
             Text('DRIVE CLEANER. GO FURTHER.',

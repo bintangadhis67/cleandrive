@@ -1,92 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
-import 'package:qr_flutter/qr_flutter.dart';
+
 import 'app_state.dart';
+import 'data/repository.dart';
 import 'models.dart';
+import 'orders.dart';
+import 'payment.dart';
 import 'theme.dart';
+import 'voucher.dart';
+import 'widgets.dart';
 
 typedef GoFn = void Function(int, {WashPackage? pack, VehicleType? vehicle});
 
-final _fmt = DateFormat('d MMM yyyy, HH:mm');
-final _hm = DateFormat('HH:mm');
 const _dayNames = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 const _monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-const _statusColors = [Color(0xFFD08A00), kRed, Color(0xFF3B5FB8), Color(0xFF2E9E5B)];
-const _stageNames = ['Mobil dalam antrean', 'Sedang dicuci', 'Finishing', 'Siap diambil'];
-const _headlines = [
-  'Kendaraanmu menunggu giliran',
-  'Kendaraanmu sedang dicuci!',
-  'Hampir selesai, tahap finishing!',
-  'Cucian selesai, siap diambil!',
-];
-const _inkMuted = Color(0x990B1F44); // teks redup di atas kartu cream
-const _creamMuted = Color(0xB3F4E8D6); // teks redup di atas latar navy
-final _cardTheme = buildCardTheme();
+const _creamMuted = Color(0xB3F4E8D6);
 
-// ---------- Helper tampilan ----------
-IconData _vehicleIcon(VehicleType v) => switch (v) {
-      VehicleType.motor => Icons.two_wheeler,
-      VehicleType.mobil => Icons.directions_car_filled,
-      VehicleType.suv => Icons.airport_shuttle,
-    };
-
-IconData _packIcon(WashPackage p) =>
-    p.name == 'Express' ? Icons.bolt : (p.name == 'Reguler' ? Icons.local_car_wash : Icons.auto_awesome);
-
-Widget _sec(String t, {double top = 22}) => Padding(
-      padding: EdgeInsets.only(top: top, bottom: 10),
-      child: Text(t, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: kCream)),
-    );
-
-Widget _header(String title, String sub) => Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: kCream)),
-        const SizedBox(height: 2),
-        Text(sub, style: const TextStyle(color: _creamMuted)),
-      ]),
-    );
-
-void _toast(BuildContext c, String msg) => ScaffoldMessenger.of(c)
-    .showSnackBar(SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating));
-
-/// Kartu cream dengan teks navy (gaya desain).
-class _Panel extends StatelessWidget {
-  final Widget child;
-  final EdgeInsets padding;
-  final VoidCallback? onTap;
-  const _Panel({required this.child, this.padding = const EdgeInsets.all(16), this.onTap});
-
-  @override
-  Widget build(BuildContext context) => Theme(
-        data: _cardTheme,
-        child: Material(
-          color: kCream,
-          borderRadius: BorderRadius.circular(22),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(onTap: onTap, child: Padding(padding: padding, child: child)),
-        ),
-      );
-}
-
-class _StatusChip extends StatelessWidget {
-  final int status;
-  const _StatusChip(this.status);
-  @override
-  Widget build(BuildContext context) {
-    final c = _statusColors[status];
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: c.withOpacity(.14), borderRadius: BorderRadius.circular(20)),
-      child: Text(statusLabels[status], style: TextStyle(color: c, fontWeight: FontWeight.w800, fontSize: 12)),
-    );
-  }
-}
-
-// ---------- HOME KONSUMEN (bottom bar cream + tombol Booking di tengah) ----------
+// ---------- HOME KONSUMEN (bottom bar + tombol Booking di tengah) ----------
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
   @override
@@ -97,6 +27,33 @@ class _HomeScreenState extends State<HomeScreen> {
   int _idx = 0; // 0 Beranda, 1 Pesanan, 2 Booking, 3 Layanan, 4 Akun
   WashPackage? _pack;
   VehicleType? _vehicle;
+
+  @override
+  void initState() {
+    super.initState();
+    app.addListener(_onApp);
+  }
+
+  @override
+  void dispose() {
+    app.removeListener(_onApp);
+    super.dispose();
+  }
+
+  /// Layar lain (voucher, pembayaran) bisa meminta pindah tab lewat app.requestTab().
+  void _onApp() {
+    final t = app.requestedTab;
+    if (t != null) {
+      app.requestedTab = null;
+      if (mounted) {
+        setState(() {
+          _idx = t;
+          _pack = null;
+          _vehicle = null;
+        });
+      }
+    }
+  }
 
   void _go(int i, {WashPackage? pack, VehicleType? vehicle}) => setState(() {
         _idx = i;
@@ -115,7 +72,6 @@ class _HomeScreenState extends State<HomeScreen> {
           key: ValueKey('${_pack?.name}-${_vehicle?.name}'),
           initialPack: _pack,
           initialVehicle: _vehicle,
-          onDone: () => _go(1),
         );
       case 3:
         return LayananTab(onGo: _go);
@@ -126,7 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _navItem(int i, IconData icon, String label) {
     final on = _idx == i;
-    final c = on ? kRed : _inkMuted;
+    final c = on ? kRed : kMuted;
     return Expanded(
       child: InkWell(
         onTap: () => _go(i),
@@ -157,7 +113,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
         bottomNavigationBar: BottomAppBar(
-          color: kCream,
+          color: Colors.white,
           surfaceTintColor: Colors.transparent,
           shape: const CircularNotchedRectangle(),
           notchMargin: 6,
@@ -175,7 +131,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: _idx == 2 ? FontWeight.w800 : FontWeight.w600,
-                          color: _idx == 2 ? kRed : _inkMuted)),
+                          color: _idx == 2 ? kRed : kMuted)),
                 ),
               ),
             ),
@@ -211,21 +167,13 @@ class BerandaTab extends StatelessWidget {
         ),
       );
 
-  Widget _hero() => ClipRRect(
-        borderRadius: BorderRadius.circular(26),
-        child: Container(
+  Widget _hero() => NavyCard(
+        radius: 26,
+        child: SizedBox(
           height: 200,
           width: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-                begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF1B3A73), kNavySoft]),
-          ),
           child: Stack(children: [
-            Positioned(
-              right: -20,
-              bottom: -10,
-              child: Icon(Icons.directions_car_filled_rounded, size: 170, color: Colors.white.withOpacity(.08)),
-            ),
+            Positioned(right: -4, bottom: 10, height: 128, child: Image.asset('assets/images/hero.png', fit: BoxFit.contain)),
             Positioned(left: 0, right: 0, bottom: 0, child: Container(height: 5, color: kRed)),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
@@ -234,12 +182,12 @@ class BerandaTab extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text('Drive\nCleaner,\nGo Further.',
-                      style: GoogleFonts.orbitron(
-                          color: Colors.white, fontSize: 21, fontWeight: FontWeight.w800, height: 1.2)),
+                      style: GoogleFonts.orbitron(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w800, height: 1.2)),
                   FilledButton.icon(
                     style: FilledButton.styleFrom(
                       backgroundColor: kCream,
                       foregroundColor: kNavy,
+                      minimumSize: const Size(0, 46),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),
                     onPressed: () => onGo(2),
@@ -259,58 +207,88 @@ class BerandaTab extends StatelessWidget {
         builder: (context, _) {
           final name = app.user ?? '';
           final first = name.split(' ').first;
-          final active = app.myBookings.where((b) => b.status < 3).toList()..sort((a, b) => a.slot.compareTo(b.slot));
-          return ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 8, bottom: 16),
-              child: Row(children: [
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Halo, $first!',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: kCream)),
-                    const Text('Jaga mobilmu tetap prima.', style: TextStyle(color: _creamMuted)),
+          final active = app.bookings.where((b) => b.active).toList()..sort((a, b) => a.slot.compareTo(b.slot));
+          final toReview = app.bookings.where((b) => b.status == 3 && !b.cancelled && b.review == null).firstOrNull;
+          return RefreshIndicator(
+            color: kRed,
+            onRefresh: () async {
+              try {
+                await app.refreshAll();
+              } catch (_) {}
+            },
+            child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 16),
+                child: Row(children: [
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Halo, $first!',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
+                      const Text('Siap cuci kendaraanmu hari ini?', style: TextStyle(color: kMuted)),
+                    ]),
+                  ),
+                  GestureDetector(
+                    onTap: () => onGo(4),
+                    child: CircleAvatar(
+                      radius: 22,
+                      backgroundColor: kNavy,
+                      child: Text(name.isEmpty ? '?' : name[0].toUpperCase(),
+                          style: const TextStyle(color: kCream, fontWeight: FontWeight.w800, fontSize: 18)),
+                    ),
+                  ),
+                ]),
+              ),
+              _hero(),
+              const SizedBox(height: 16),
+              const VoucherHomeCard(),
+              const SizedBox(height: 16),
+              Panel(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Akses Cepat', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    _quick(Icons.event_available, 'Booking', () => onGo(2)),
+                    _quick(Icons.receipt_long, 'Pesanan', () => onGo(1)),
+                    _quick(Icons.local_car_wash, 'Layanan', () => onGo(3)),
+                    _quick(Icons.local_offer_outlined, 'Voucher',
+                        () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyVouchersScreen()))),
+                  ]),
+                ]),
+              ),
+              if (toReview != null) ...[
+                const SizedBox(height: 16),
+                Panel(
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ReviewScreen(bookingId: toReview.id))),
+                  child: Row(children: [
+                    const Icon(Icons.star_rounded, color: kGold, size: 34),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Text('Bagaimana hasil cucianmu?', style: TextStyle(fontWeight: FontWeight.w800)),
+                        Text('${toReview.pack.name} • ${toReview.plate}. Beri rating dan ulasan.',
+                            style: const TextStyle(fontSize: 12.5, color: kMuted)),
+                      ]),
+                    ),
+                    const Icon(Icons.chevron_right, color: kMuted),
                   ]),
                 ),
-                GestureDetector(
-                  onTap: () => onGo(4),
-                  child: CircleAvatar(
-                    radius: 22,
-                    backgroundColor: kCream,
-                    child: Text(name.isEmpty ? '?' : name[0].toUpperCase(),
-                        style: const TextStyle(color: kNavy, fontWeight: FontWeight.w800, fontSize: 18)),
-                  ),
-                ),
-              ]),
-            ),
-            _hero(),
-            const SizedBox(height: 16),
-            _Panel(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('Akses Cepat', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-                const SizedBox(height: 10),
-                Row(children: [
-                  _quick(Icons.event_available, 'Booking', () => onGo(2)),
-                  _quick(Icons.receipt_long, 'Pesanan', () => onGo(1)),
-                  _quick(Icons.local_car_wash, 'Layanan', () => onGo(3)),
-                  _quick(Icons.person_outline, 'Akun', () => onGo(4)),
-                ]),
-              ]),
-            ),
-            _sec('Cucian aktif'),
-            if (active.isEmpty)
-              _Panel(
-                child: Row(children: [
-                  const Icon(Icons.local_car_wash_outlined, size: 32, color: _inkMuted),
-                  const SizedBox(width: 12),
-                  const Expanded(child: Text('Belum ada cucian aktif.', style: TextStyle(color: _inkMuted))),
-                  TextButton(onPressed: () => onGo(2), child: const Text('Booking')),
-                ]),
-              )
-            else
-              _ActiveCard(active.first),
-          ]);
+              ],
+              sec('Cucian aktif', trailing: TextButton(onPressed: () => onGo(1), child: const Text('Lihat Semua'))),
+              if (active.isEmpty)
+                Panel(
+                  child: Row(children: [
+                    const Icon(Icons.local_car_wash_outlined, size: 32, color: kMuted),
+                    const SizedBox(width: 12),
+                    const Expanded(child: Text('Belum ada cucian aktif.', style: TextStyle(color: kMuted))),
+                    TextButton(onPressed: () => onGo(2), child: const Text('Booking')),
+                  ]),
+                )
+              else
+                _ActiveCard(active.first),
+            ]),
+          );
         },
       );
 }
@@ -319,19 +297,20 @@ class _ActiveCard extends StatelessWidget {
   final Booking b;
   const _ActiveCard(this.b);
   @override
-  Widget build(BuildContext context) => _Panel(
+  Widget build(BuildContext context) => Panel(
         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DetailScreen(id: b.id))),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            CircleAvatar(backgroundColor: kNavy, child: Icon(_vehicleIcon(b.vehicle), color: kCream)),
+            ServiceThumb(b.pack, b.vehicle, width: 92),
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(b.code, style: const TextStyle(fontSize: 11.5, color: kMuted)),
                 Text('${b.pack.name} • ${b.plate}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                Text(_fmt.format(b.slot), style: const TextStyle(fontSize: 12.5, color: _inkMuted)),
+                Text(fmtDateTime.format(b.slot), style: const TextStyle(fontSize: 12.5, color: kMuted)),
               ]),
             ),
-            _StatusChip(b.status),
+            StatusChip(b),
           ]),
           const SizedBox(height: 14),
           LinearProgressIndicator(
@@ -343,10 +322,11 @@ class _ActiveCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Row(children: [
-            const Icon(Icons.timer_outlined, size: 16, color: _inkMuted),
+            const Icon(Icons.timer_outlined, size: 16, color: kMuted),
             const SizedBox(width: 6),
-            Text('Estimasi selesai ${_hm.format(b.estFinish)}',
-                style: const TextStyle(fontSize: 12.5, color: _inkMuted)),
+            Text('Estimasi selesai ${fmtHm.format(b.estFinish)}', style: const TextStyle(fontSize: 12.5, color: kMuted)),
+            const Spacer(),
+            PayChip(b),
           ]),
         ]),
       );
@@ -371,13 +351,13 @@ class _LayananTabState extends State<LayananTab> {
         onTap: () => setState(() => _v = v),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 9),
           decoration: BoxDecoration(
-            color: sel ? kRed : Colors.white.withOpacity(.08),
+            color: sel ? kNavy : Colors.white,
             borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: sel ? kNavy : kLine),
           ),
-          child: Text(v.label,
-              style: TextStyle(fontWeight: FontWeight.w700, color: sel ? Colors.white : kCream)),
+          child: Text(v.label, style: TextStyle(fontWeight: FontWeight.w700, color: sel ? Colors.white : kNavy)),
         ),
       ),
     );
@@ -387,84 +367,85 @@ class _LayananTabState extends State<LayananTab> {
     final popular = p.name == 'Reguler';
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(
-            begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF1B3A73), kNavySoft]),
-        border: Border.all(color: const Color(0x1FFFFFFF)),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+      child: NavyCard(
         child: Stack(children: [
-          Positioned(right: -10, bottom: -14, child: Icon(_packIcon(p), size: 130, color: Colors.white.withOpacity(.06))),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 18, 10, 16),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+              Expanded(
+                flex: 5,
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('${p.name} Wash',
+                      style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 2),
+                  Text(p.desc, style: const TextStyle(color: _creamMuted, fontSize: 12.5)),
+                  const SizedBox(height: 6),
+                  Row(children: [
+                    const Icon(Icons.timer_outlined, size: 14, color: _creamMuted),
+                    const SizedBox(width: 4),
+                    Text('${p.minutes} menit', style: const TextStyle(color: _creamMuted, fontSize: 12.5)),
+                  ]),
+                  const SizedBox(height: 12),
+                  Text(rp(p.priceFor(_v)), style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 10),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(0, 42),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () => widget.onGo(2, pack: p, vehicle: _v),
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                    label: const Text('Pesan', style: TextStyle(fontWeight: FontWeight.w800)),
+                  ),
+                ]),
+              ),
+              const SizedBox(width: 6),
+              Expanded(flex: 5, child: Image.asset(p.imageFor(_v), fit: BoxFit.contain)),
+            ]),
+          ),
           if (popular)
             Positioned(
               top: 0,
               right: 0,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                decoration: const BoxDecoration(
-                    color: kRed, borderRadius: BorderRadius.only(bottomLeft: Radius.circular(16))),
-                child: const Text('Populer',
-                    style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w800)),
+                decoration: const BoxDecoration(color: kRed, borderRadius: BorderRadius.only(bottomLeft: Radius.circular(16))),
+                child: const Text('Populer', style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w800)),
               ),
             ),
-          Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(color: kRed, borderRadius: BorderRadius.circular(14)),
-                child: Icon(_packIcon(p), color: Colors.white),
-              ),
-              const SizedBox(height: 12),
-              Text(p.name, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 2),
-              Text(p.desc, style: const TextStyle(color: _creamMuted, fontSize: 13)),
-              const SizedBox(height: 6),
-              Row(children: [
-                const Icon(Icons.timer_outlined, size: 14, color: _creamMuted),
-                const SizedBox(width: 4),
-                Text('${p.minutes} menit', style: const TextStyle(color: _creamMuted, fontSize: 12.5)),
-              ]),
-              const SizedBox(height: 14),
-              Row(children: [
-                Text(rp(p.priceFor(_v)),
-                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
-                const Spacer(),
-                FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: kRed,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: () => widget.onGo(2, pack: p, vehicle: _v),
-                  icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-                  label: const Text('Pesan', style: TextStyle(fontWeight: FontWeight.w800)),
-                ),
-              ]),
-            ]),
-          ),
         ]),
       ),
     );
   }
 
   @override
-  Widget build(BuildContext context) => ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: [
-        _header('Layanan Kami', 'Pilih kendaraan, lihat harga tiap paket.'),
-        Row(children: [for (final v in VehicleType.values) _pill(v)]),
-        const SizedBox(height: 16),
-        for (final p in packages) _serviceCard(p),
-      ]);
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: app,
+        builder: (context, _) => ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: [
+          pageHeader('Layanan Kami', 'Pilih kendaraan, lihat harga tiap paket.'),
+          if (app.rating.count > 0)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Row(children: [
+                StarRow(app.rating.avg, size: 18),
+                const SizedBox(width: 8),
+                Text('${app.rating.avg.toStringAsFixed(1)} dari ${app.rating.count} ulasan',
+                    style: const TextStyle(color: kMuted, fontWeight: FontWeight.w600, fontSize: 13)),
+              ]),
+            ),
+          Row(children: [for (final v in VehicleType.values) _pill(v)]),
+          const SizedBox(height: 16),
+          for (final p in packages) _serviceCard(p),
+        ]),
+      );
 }
 
-// ---------- BOOKING ----------
+// ---------- BOOKING (pilih kendaraan, paket, jadwal) ----------
 class BookingScreen extends StatefulWidget {
-  final VoidCallback onDone;
   final WashPackage? initialPack;
   final VehicleType? initialVehicle;
-  const BookingScreen({super.key, required this.onDone, this.initialPack, this.initialVehicle});
+  const BookingScreen({super.key, this.initialPack, this.initialVehicle});
   @override
   State<BookingScreen> createState() => _BookingScreenState();
 }
@@ -475,6 +456,14 @@ class _BookingScreenState extends State<BookingScreen> {
   final _plate = TextEditingController();
   int _dayOffset = 0;
   int? _hour;
+  Map<int, int> _counts = {};
+  bool _loadingSlots = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCounts();
+  }
 
   @override
   void dispose() {
@@ -487,11 +476,31 @@ class _BookingScreenState extends State<BookingScreen> {
     return DateTime(n.year, n.month, n.day);
   }
 
-  void _submit() {
-    final nav = Navigator.of(context);
-    final b = app.create(_v, _p, _plate.text.trim(), _day.add(Duration(hours: _hour!)));
-    widget.onDone();
-    nav.push(MaterialPageRoute(builder: (_) => DetailScreen(id: b.id)));
+  int _count(int h) => _counts[h] ?? 0;
+
+  Future<void> _loadCounts() async {
+    setState(() => _loadingSlots = true);
+    try {
+      final m = await app.slotCounts(_day);
+      if (mounted) setState(() => _counts = m);
+    } catch (_) {
+      // slot tetap tampil tersedia; server akan memvalidasi saat konfirmasi
+    } finally {
+      if (mounted) setState(() => _loadingSlots = false);
+    }
+  }
+
+  /// Estimasi selesai = jam datang + durasi paket + 10 menit per antrean di depan.
+  DateTime _estimate(DateTime slot) => slot.add(Duration(minutes: _p.minutes + _count(slot.hour) * 10));
+
+  void _next() {
+    final slot = _day.add(Duration(hours: _hour!));
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ConfirmOrderScreen(vehicle: _v, pack: _p, plate: _plate.text.trim(), slot: slot, estimate: _estimate(slot)),
+      ),
+    );
   }
 
   Widget _choice({required bool selected, required VoidCallback? onTap, required Widget child, double vertical = 14}) =>
@@ -501,9 +510,9 @@ class _BookingScreenState extends State<BookingScreen> {
           duration: const Duration(milliseconds: 180),
           padding: EdgeInsets.symmetric(vertical: vertical),
           decoration: BoxDecoration(
-            color: selected ? kRed : Colors.white.withOpacity(.07),
+            color: selected ? kRed : Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: selected ? kRed : Colors.white.withOpacity(.14)),
+            border: Border.all(color: selected ? kRed : kLine),
           ),
           child: child,
         ),
@@ -511,13 +520,13 @@ class _BookingScreenState extends State<BookingScreen> {
 
   Widget _vehicleTile(VehicleType v) {
     final sel = _v == v;
-    final fg = sel ? Colors.white : kCream;
+    final fg = sel ? Colors.white : kNavy;
     return _choice(
       selected: sel,
       onTap: () => setState(() => _v = v),
       vertical: 16,
       child: Column(children: [
-        Icon(_vehicleIcon(v), size: 30, color: fg),
+        Icon(vehicleIcon(v), size: 30, color: fg),
         const SizedBox(height: 6),
         Text(v.label, style: TextStyle(fontWeight: FontWeight.w700, color: fg)),
       ]),
@@ -532,29 +541,24 @@ class _BookingScreenState extends State<BookingScreen> {
         onTap: () => setState(() => _p = p),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: kCream,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: sel ? kRed : Colors.transparent, width: 2.5),
+            border: Border.all(color: sel ? kRed : kLine, width: sel ? 2.5 : 1),
           ),
           child: Row(children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(color: kNavy, borderRadius: BorderRadius.circular(14)),
-              child: Icon(_packIcon(p), color: kCream),
-            ),
+            ServiceThumb(p, _v, width: 96),
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(p.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: kNavy)),
-                Text(p.desc, style: const TextStyle(fontSize: 12.5, color: _inkMuted)),
-                const SizedBox(height: 6),
+                Text('${p.name} Wash', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)),
+                Text(p.desc, style: const TextStyle(fontSize: 12, color: kMuted)),
+                const SizedBox(height: 4),
                 Row(children: [
-                  const Icon(Icons.timer_outlined, size: 14, color: _inkMuted),
+                  const Icon(Icons.timer_outlined, size: 14, color: kMuted),
                   const SizedBox(width: 4),
-                  Text('${p.minutes} menit', style: const TextStyle(fontSize: 12, color: _inkMuted)),
+                  Text('${p.minutes} menit', style: const TextStyle(fontSize: 12, color: kMuted)),
                 ]),
               ]),
             ),
@@ -571,16 +575,19 @@ class _BookingScreenState extends State<BookingScreen> {
   Widget _dayTile(int i) {
     final d = DateTime.now().add(Duration(days: i));
     final sel = _dayOffset == i;
-    final fg = sel ? Colors.white : kCream;
+    final fg = sel ? Colors.white : kNavy;
     return Expanded(
       child: Padding(
         padding: EdgeInsets.only(right: i == 2 ? 0 : 10),
         child: _choice(
           selected: sel,
-          onTap: () => setState(() {
-            _dayOffset = i;
-            _hour = null;
-          }),
+          onTap: () {
+            setState(() {
+              _dayOffset = i;
+              _hour = null;
+            });
+            _loadCounts();
+          },
           child: Column(children: [
             Text(i == 0 ? 'Hari ini' : _dayNames[d.weekday - 1], style: TextStyle(fontSize: 12, color: fg)),
             Text('${d.day}', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: fg)),
@@ -593,10 +600,10 @@ class _BookingScreenState extends State<BookingScreen> {
 
   Widget _hourTile(int h) {
     final past = _day.add(Duration(hours: h)).isBefore(DateTime.now());
-    final full = app.slotCount(_day, h) >= AppState.maxPerSlot;
+    final full = _count(h) >= AppState.maxPerSlot;
     final off = past || full;
     final sel = _hour == h;
-    final fg = sel ? Colors.white : (off ? Colors.white30 : kCream);
+    final fg = sel ? Colors.white : (off ? const Color(0x4D0B1F44) : kNavy);
     return SizedBox(
       width: 82,
       child: _choice(
@@ -606,7 +613,7 @@ class _BookingScreenState extends State<BookingScreen> {
         child: Column(children: [
           Text('${h.toString().padLeft(2, '0')}:00', style: TextStyle(fontWeight: FontWeight.w700, color: fg)),
           Text(full ? 'Penuh' : (past ? 'Lewat' : 'Tersedia'),
-              style: TextStyle(fontSize: 10.5, color: full ? const Color(0xFFFF7B7B) : fg)),
+              style: TextStyle(fontSize: 10.5, color: full ? const Color(0xFFD64545) : fg)),
         ]),
       ),
     );
@@ -616,27 +623,20 @@ class _BookingScreenState extends State<BookingScreen> {
     final ready = slot != null && _plate.text.trim().isNotEmpty;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      decoration: const BoxDecoration(
-        color: kNavySoft,
-        border: Border(top: BorderSide(color: Color(0x1FFFFFFF))),
-      ),
+      decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: kLine))),
       child: Row(children: [
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-            Text(rp(_p.priceFor(_v)), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: kCream)),
-            Text(slot == null ? 'Pilih jam kedatangan' : 'Selesai sekitar ${_hm.format(app.estimate(slot, _p))}',
-                style: const TextStyle(fontSize: 12.5, color: _creamMuted)),
+            Text(rp(_p.priceFor(_v)), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+            Text(slot == null ? 'Pilih jam kedatangan' : 'Selesai sekitar ${fmtHm.format(_estimate(slot))}',
+                style: const TextStyle(fontSize: 12.5, color: kMuted)),
           ]),
         ),
         FilledButton.icon(
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(0, 50),
-            padding: const EdgeInsets.symmetric(horizontal: 22),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          ),
-          onPressed: ready ? _submit : null,
-          icon: const Icon(Icons.event_available),
-          label: const Text('Pesan', style: TextStyle(fontWeight: FontWeight.w800)),
+          style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 22)),
+          onPressed: ready ? _next : null,
+          icon: const Icon(Icons.arrow_forward_rounded),
+          label: const Text('Lanjut'),
         ),
       ]),
     );
@@ -648,38 +648,33 @@ class _BookingScreenState extends State<BookingScreen> {
     return Column(children: [
       Expanded(
         child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 16), children: [
-          _header('Booking Cuci', 'Pilih kendaraan, paket, dan jam kedatangan.'),
-          const Text('Jenis kendaraan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: kCream)),
+          pageHeader('Booking Cuci', 'Pilih kendaraan, paket, dan jam kedatangan.'),
+          const Text('Jenis kendaraan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
           const SizedBox(height: 10),
           Row(children: [
             for (final v in VehicleType.values)
               Expanded(child: Padding(padding: EdgeInsets.only(right: v == VehicleType.suv ? 0 : 10), child: _vehicleTile(v))),
           ]),
           const SizedBox(height: 12),
-          Theme(
-            data: _cardTheme,
-            child: TextField(
-              controller: _plate,
-              textCapitalization: TextCapitalization.characters,
-              onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                labelText: 'Plat nomor',
-                hintText: 'mis. L 1234 AB',
-                prefixIcon: const Icon(Icons.confirmation_number_outlined),
-                filled: true,
-                fillColor: kCream,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: kRed, width: 2)),
-              ),
+          TextField(
+            controller: _plate,
+            textCapitalization: TextCapitalization.characters,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              labelText: 'Plat nomor',
+              hintText: 'mis. L 1234 AB',
+              prefixIcon: Icon(Icons.confirmation_number_outlined),
             ),
           ),
-          _sec('Paket cuci'),
+          sec('Paket cuci'),
           for (final p in packages) _packTile(p),
-          _sec('Tanggal', top: 12),
+          sec('Tanggal', top: 12),
           Row(children: [for (var i = 0; i < 3; i++) _dayTile(i)]),
-          _sec('Jam kedatangan'),
-          Wrap(spacing: 8, runSpacing: 8, children: [for (var h = 8; h <= 17; h++) _hourTile(h)]),
+          sec('Jam kedatangan'),
+          if (_loadingSlots)
+            const Padding(padding: EdgeInsets.all(12), child: Center(child: CircularProgressIndicator(color: kRed)))
+          else
+            Wrap(spacing: 8, runSpacing: 8, children: [for (var h = 8; h <= 17; h++) _hourTile(h)]),
         ]),
       ),
       _bottomBar(slot),
@@ -687,270 +682,178 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 }
 
-// ---------- RIWAYAT PESANAN ----------
-class OrdersScreen extends StatelessWidget {
-  const OrdersScreen({super.key});
+// ---------- KONFIRMASI PESANAN (desain layar 8) ----------
+class ConfirmOrderScreen extends StatefulWidget {
+  final VehicleType vehicle;
+  final WashPackage pack;
+  final String plate;
+  final DateTime slot, estimate;
+  const ConfirmOrderScreen({
+    super.key,
+    required this.vehicle,
+    required this.pack,
+    required this.plate,
+    required this.slot,
+    required this.estimate,
+  });
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
-        listenable: app,
-        builder: (context, _) {
-          final list = app.myBookings;
-          return ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: [
-            _header('Riwayat Pesanan', 'Semua pesanan cucimu ada di sini.'),
-            if (list.isEmpty)
-              const _Panel(
-                padding: EdgeInsets.symmetric(vertical: 36, horizontal: 16),
-                child: Center(
-                  child: Column(children: [
-                    Icon(Icons.receipt_long_outlined, size: 48, color: _inkMuted),
-                    SizedBox(height: 10),
-                    Text('Belum ada pesanan', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                    Text('Pesanan yang kamu buat akan muncul di sini.', style: TextStyle(color: _inkMuted)),
-                  ]),
-                ),
-              ),
-            for (final b in list)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _Panel(
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DetailScreen(id: b.id))),
-                  child: Row(children: [
-                    CircleAvatar(backgroundColor: kNavy, child: Icon(_vehicleIcon(b.vehicle), color: kCream)),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('${b.pack.name} • ${b.plate}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                        Text(_fmt.format(b.slot), style: const TextStyle(fontSize: 12.5, color: _inkMuted)),
-                        const SizedBox(height: 6),
-                        _StatusChip(b.status),
-                      ]),
-                    ),
-                    const Icon(Icons.chevron_right, color: _inkMuted),
-                  ]),
-                ),
-              ),
-          ]);
-        },
-      );
+  State<ConfirmOrderScreen> createState() => _ConfirmOrderScreenState();
 }
 
-// ---------- TRACKING ANTREAN CUCI + TIKET QR ----------
-class DetailScreen extends StatelessWidget {
-  final String id;
-  const DetailScreen({super.key, required this.id});
+class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
+  Voucher? _voucher;
+  bool _busy = false;
 
-  Future<void> _pdf(Booking b) async {
-    final doc = pw.Document();
-    doc.addPage(pw.Page(build: (_) => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-          pw.Text('CleanDrive - Bukti Transaksi', style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold)),
-          pw.Divider(),
-          pw.Text('Kode: ${b.code}'),
-          pw.Text('Kendaraan: ${b.vehicle.label} (${b.plate})'),
-          pw.Text('Paket: ${b.pack.name}'),
-          pw.Text('Jadwal: ${_fmt.format(b.slot)}'),
-          pw.Text('Estimasi selesai: ${_fmt.format(b.estFinish)}'),
-          pw.Text('Status: ${statusLabels[b.status]}'),
-          pw.SizedBox(height: 8),
-          pw.Text('Total: ${rp(b.price)}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-          pw.SizedBox(height: 12),
-          pw.BarcodeWidget(data: b.code, barcode: pw.Barcode.qrCode(), width: 100, height: 100),
-        ])));
-    await Printing.layoutPdf(onLayout: (_) => doc.save(), name: 'bukti-${b.id}.pdf');
-  }
-
-  DateTime _stageTime(Booking b, int i) {
-    const f = [0.0, .3, .8, 1.0];
-    final total = b.estFinish.difference(b.slot).inMinutes;
-    return b.slot.add(Duration(minutes: (total * f[i]).round()));
-  }
-
-  Widget _stepper(int stage) {
-    const names = ['Booking', 'Proses', 'Selesai'];
-    Widget dot(int i) {
-      final done = i < stage, cur = i == stage;
-      return Column(children: [
-        Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: cur ? kRed : (done ? kNavy : const Color(0x1F0B1F44)),
-          ),
-          child: (done || cur) ? const Icon(Icons.check, size: 16, color: Colors.white) : null,
-        ),
-        const SizedBox(height: 4),
-        Text(names[i],
-            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: (done || cur) ? kNavy : _inkMuted)),
-      ]);
-    }
-
-    Widget line(int i) => Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 14, left: 4, right: 4),
-            child: Container(height: 2, color: i < stage ? kNavy : const Color(0x1F0B1F44)),
-          ),
-        );
-
-    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [dot(0), line(0), dot(1), line(1), dot(2)]);
-  }
-
-  Widget _timeline(Booking b) => Column(children: [
-        for (var i = 0; i < 4; i++)
-          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Column(children: [
-              Container(
-                width: 14,
-                height: 14,
-                margin: const EdgeInsets.only(top: 3),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: i <= b.status ? kRed : const Color(0x330B1F44),
-                ),
-              ),
-              if (i < 3) Container(width: 2, height: 30, color: i < b.status ? kRed : const Color(0x1F0B1F44)),
-            ]),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(_stageNames[i],
-                  style: TextStyle(
-                      fontWeight: i == b.status ? FontWeight.w800 : FontWeight.w600,
-                      color: i <= b.status ? kNavy : _inkMuted)),
-            ),
-            Text('${i > b.status ? '~' : ''}${_hm.format(_stageTime(b, i))}',
-                style: TextStyle(fontWeight: FontWeight.w700, color: i <= b.status ? kNavy : _inkMuted)),
-          ]),
-      ]);
-
-  Widget _kv(String k, String v, {bool bold = false}) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 5),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(flex: 2, child: Text(k, style: const TextStyle(color: _inkMuted))),
-          Expanded(
-            flex: 3,
-            child: Text(v,
-                textAlign: TextAlign.right,
-                style: TextStyle(fontWeight: bold ? FontWeight.w800 : FontWeight.w600, fontSize: bold ? 16 : 14)),
-          ),
-        ]),
-      );
+  int get _price => widget.pack.priceFor(widget.vehicle);
+  int get _discount => _voucher?.discountFor(_price) ?? 0;
 
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
-        listenable: app,
-        builder: (context, _) {
-          final b = app.bookings.firstWhere((x) => x.id == id);
-          final stage = b.status == 0 ? 0 : (b.status == 3 ? 2 : 1);
-          return Scaffold(
-            appBar: AppBar(title: const Text('Tracking Antrean Cuci')),
-            body: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: ListView(padding: const EdgeInsets.all(16), children: [
-                  _Panel(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
-                    child: Column(children: [
-                      _stepper(stage),
-                      const SizedBox(height: 20),
-                      Text(_headlines[b.status],
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
-                      const SizedBox(height: 4),
-                      Text.rich(TextSpan(children: [
-                        const TextSpan(text: 'Estimasi selesai: ', style: TextStyle(color: _inkMuted)),
-                        TextSpan(
-                            text: _hm.format(b.estFinish),
-                            style: const TextStyle(color: kRed, fontWeight: FontWeight.w800)),
-                      ])),
-                      const SizedBox(height: 18),
-                      SizedBox(
-                        width: 160,
-                        height: 160,
-                        child: Stack(alignment: Alignment.center, children: [
-                          SizedBox.expand(
-                            child: CircularProgressIndicator(
-                              value: (b.status + 1) / 4,
-                              strokeWidth: 10,
-                              strokeCap: StrokeCap.round,
-                              color: kRed,
-                              backgroundColor: const Color(0x140B1F44),
-                            ),
-                          ),
-                          Icon(_vehicleIcon(b.vehicle), size: 70, color: kNavy),
-                        ]),
-                      ),
-                      const SizedBox(height: 14),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Container(width: 9, height: 9, decoration: const BoxDecoration(color: kRed, shape: BoxShape.circle)),
-                          const SizedBox(width: 8),
-                          Text(statusLabels[b.status], style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-                        ]),
-                      ),
-                      const SizedBox(height: 22),
-                      _timeline(b),
-                    ]),
-                  ),
-                  _sec('Tiket Masuk'),
-                  _Panel(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0x1F0B1F44)),
-                        ),
-                        child: QrImageView(data: b.code, size: 170, backgroundColor: Colors.white),
-                      ),
-                      const SizedBox(height: 10),
-                      SelectableText(b.code, style: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1)),
-                      const Text('Tunjukkan QR ini ke petugas saat tiba',
-                          style: TextStyle(fontSize: 12.5, color: _inkMuted)),
-                      const SizedBox(height: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: (b.verified ? _statusColors[3] : _statusColors[0]).withOpacity(.14),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(b.verified ? Icons.verified : Icons.hourglass_empty,
-                              size: 16, color: b.verified ? _statusColors[3] : _statusColors[0]),
-                          const SizedBox(width: 6),
-                          Text(b.verified ? 'Tiket terverifikasi' : 'Belum diverifikasi petugas',
-                              style: TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: b.verified ? _statusColors[3] : _statusColors[0])),
-                        ]),
-                      ),
-                      const Divider(height: 28),
-                      _kv('No. Pesanan', '#${b.id}'),
-                      _kv('Kendaraan', '${b.vehicle.label} • ${b.plate}'),
-                      _kv('Paket', b.pack.name),
-                      _kv('Jadwal', _fmt.format(b.slot)),
-                      _kv('Total', rp(b.price), bold: true),
-                    ]),
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(52),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                    onPressed: () => _pdf(b),
-                    icon: const Icon(Icons.picture_as_pdf),
-                    label: const Text('Cetak Bukti PDF', style: TextStyle(fontWeight: FontWeight.w800)),
-                  ),
-                ]),
+  void initState() {
+    super.initState();
+    final ok = app.usableVouchers.where((v) => v.eligible(_price)).toList();
+    final pend = app.pendingVoucher;
+    if (pend != null && ok.any((v) => v.id == pend.id)) {
+      _voucher = ok.firstWhere((v) => v.id == pend.id);
+    } else if (ok.isNotEmpty) {
+      ok.sort((a, b) => b.discountFor(_price).compareTo(a.discountFor(_price)));
+      _voucher = ok.first; // otomatis pakai voucher paling hemat
+    }
+  }
+
+  Future<void> _pickVoucher() async {
+    final claimed = app.vouchers.where((v) => v.claimed).toList();
+    final picked = await showModalBottomSheet<Object>(
+      context: context,
+      backgroundColor: Colors.white,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Pilih voucher', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 10),
+            if (claimed.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Text('Kamu belum punya voucher. Klaim voucher di beranda.', style: TextStyle(color: kMuted)),
               ),
+            for (final v in claimed)
+              Builder(builder: (_) {
+                final reason = v.used ? 'Sudah dipakai' : (v.expired ? 'Kedaluwarsa' : (!v.eligible(_price) ? 'Min. transaksi ${rp(v.minTransaction)}' : null));
+                return ListTile(
+                  enabled: reason == null,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.local_offer_rounded, color: kRed),
+                  title: Text(v.code, style: const TextStyle(fontWeight: FontWeight.w800)),
+                  subtitle: Text(reason ?? 'Hemat ${rp(v.discountFor(_price))}'),
+                  trailing: _voucher?.id == v.id ? const Icon(Icons.check_circle, color: kRed) : null,
+                  onTap: reason == null ? () => Navigator.pop(ctx, v) : null,
+                );
+              }),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.block, color: kMuted),
+              title: const Text('Tanpa voucher'),
+              onTap: () => Navigator.pop(ctx, 'none'),
             ),
-          );
-        },
-      );
+          ]),
+        ),
+      ),
+    );
+    if (picked == null) return;
+    setState(() => _voucher = picked is Voucher ? picked : null);
+  }
+
+  Future<void> _confirm() async {
+    setState(() => _busy = true);
+    final b = await guard(
+      context,
+      () => app.create(
+        vehicle: widget.vehicle,
+        pack: widget.pack,
+        plate: widget.plate,
+        slot: widget.slot,
+        voucherCode: _voucher?.code,
+      ),
+    );
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (b == null) return;
+    final nav = Navigator.of(context);
+    app.requestTab(1);
+    nav.popUntil((r) => r.isFirst);
+    nav.push(MaterialPageRoute(builder: (_) => PaymentMethodScreen(bookingId: b.id)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final total = _price - _discount;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Konfirmasi Pesanan')),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: ListView(padding: const EdgeInsets.all(16), children: [
+            Panel(
+              child: Column(children: [
+                kv('Paket', '${widget.pack.name} Wash'),
+                kv('Kendaraan', widget.vehicle.label),
+                kv('Nomor Polisi', widget.plate.toUpperCase()),
+                kv('Tanggal', fmtDate.format(widget.slot)),
+                kv('Jam', '${fmtHm.format(widget.slot)} WIB'),
+                kv('Estimasi Selesai', '${fmtHm.format(widget.estimate)} WIB'),
+              ]),
+            ),
+            const SizedBox(height: 14),
+            Panel(
+              child: Column(children: [
+                kv('Total Harga', rp(_price), bold: true),
+                kv('Voucher', _discount > 0 ? '- ${rp(_discount)}' : '-', valueColor: _discount > 0 ? kGreen : kNavy),
+                const SizedBox(height: 4),
+                InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: _pickVoucher,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                    decoration: BoxDecoration(
+                      color: _voucher != null ? const Color(0x1F2E9E5B) : const Color(0x0F0B1F44),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(children: [
+                      Icon(Icons.local_offer_outlined, size: 18, color: _voucher != null ? kGreen : kMuted),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _voucher != null ? _voucher!.code : (app.usableVouchers.isEmpty ? 'Belum ada voucher tersedia' : 'Pilih voucher'),
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: _voucher != null ? kGreen : kNavy),
+                        ),
+                      ),
+                      if (_voucher != null)
+                        Text('(Hemat ${rp(_discount)})', style: const TextStyle(fontSize: 12.5, color: kGreen, fontWeight: FontWeight.w600)),
+                      const Icon(Icons.chevron_right, size: 20, color: kMuted),
+                    ]),
+                  ),
+                ),
+                const Divider(height: 26),
+                Row(children: [
+                  const Expanded(child: Text('Total Bayar', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
+                  Text(rp(total), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
+                ]),
+              ]),
+            ),
+            const SizedBox(height: 20),
+            RedButton('Konfirmasi Pesanan', busy: _busy, onPressed: _confirm),
+            const SizedBox(height: 14),
+            const Text(
+              'Setelah dikonfirmasi, kamu akan diarahkan ke pembayaran. Pesanan baru aktif setelah dibayar.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: kMuted, fontSize: 12.5, height: 1.4),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
 }
 
 // ---------- AKUN ----------
@@ -975,11 +878,17 @@ class AkunTab extends StatelessWidget {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
           FilledButton(
-            onPressed: () {
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+            onPressed: () async {
               if (name.text.trim().isEmpty) return;
-              app.updateProfile(name.text.trim(), phone.text.trim());
-              Navigator.pop(ctx);
-              _toast(context, 'Profil diperbarui');
+              final ok = await guard(ctx, () async {
+                await app.updateProfile(name.text.trim(), phone.text.trim());
+                return true;
+              });
+              if (ok == true && ctx.mounted) {
+                Navigator.pop(ctx);
+                if (context.mounted) toast(context, 'Profil diperbarui');
+              }
             },
             child: const Text('Simpan'),
           ),
@@ -1013,16 +922,20 @@ class AkunTab extends StatelessWidget {
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
             FilledButton(
-              onPressed: () {
+              style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+              onPressed: () async {
                 if (newC.text.length < 6) {
                   setS(() => err = 'Password baru minimal 6 karakter');
                 } else if (newC.text != conC.text) {
                   setS(() => err = 'Konfirmasi password tidak sama');
-                } else if (!app.changePassword(oldC.text, newC.text)) {
-                  setS(() => err = 'Password lama salah');
                 } else {
-                  Navigator.pop(ctx);
-                  _toast(context, 'Password berhasil diubah');
+                  try {
+                    await app.changePassword(oldC.text, newC.text);
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    if (context.mounted) toast(context, 'Password berhasil diubah');
+                  } on ApiException catch (e) {
+                    setS(() => err = e.message);
+                  }
                 }
               },
               child: const Text('Simpan'),
@@ -1033,28 +946,10 @@ class AkunTab extends StatelessWidget {
     );
   }
 
-  void _confirmLogout(BuildContext context) => showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Keluar dari akun?'),
-          content: const Text('Kamu perlu masuk lagi untuk melihat pesananmu.'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                app.logout();
-              },
-              child: const Text('Keluar'),
-            ),
-          ],
-        ),
-      );
-
   Widget _menu(IconData icon, String title, VoidCallback onTap) => ListTile(
         leading: Icon(icon, color: kNavy),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-        trailing: const Icon(Icons.chevron_right, color: _inkMuted),
+        trailing: const Icon(Icons.chevron_right, color: kMuted),
         onTap: onTap,
       );
 
@@ -1067,38 +962,29 @@ class AkunTab extends StatelessWidget {
             const SizedBox(height: 12),
             Center(
               child: Column(children: [
-                Stack(children: [
-                  CircleAvatar(
-                    radius: 44,
-                    backgroundColor: kCream,
-                    child: Text(name.isEmpty ? '?' : name[0].toUpperCase(),
-                        style: const TextStyle(color: kNavy, fontSize: 36, fontWeight: FontWeight.w800)),
-                  ),
-                  Positioned(
-                    right: 0,
-                    bottom: 2,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: kRed,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: kNavy, width: 3),
-                      ),
-                      child: const Icon(Icons.check, size: 14, color: Colors.white),
-                    ),
-                  ),
-                ]),
+                CircleAvatar(
+                  radius: 44,
+                  backgroundColor: kNavy,
+                  child: Text(name.isEmpty ? '?' : name[0].toUpperCase(),
+                      style: const TextStyle(color: kCream, fontSize: 36, fontWeight: FontWeight.w800)),
+                ),
                 const SizedBox(height: 12),
-                Text(name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: kCream)),
-                if (app.email.isNotEmpty) Text(app.email, style: const TextStyle(color: _creamMuted)),
-                if (app.phone.isNotEmpty) Text(app.phone, style: const TextStyle(color: _creamMuted)),
+                Text(name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                if (app.email.isNotEmpty) Text(app.email, style: const TextStyle(color: kMuted)),
+                if (app.phone.isNotEmpty) Text(app.phone, style: const TextStyle(color: kMuted)),
               ]),
             ),
             const SizedBox(height: 22),
-            _Panel(
+            Panel(
               padding: EdgeInsets.zero,
               child: Column(children: [
                 _menu(Icons.receipt_long_outlined, 'Pesanan Saya', () => onGo(1)),
+                const Divider(height: 1),
+                _menu(Icons.local_offer_outlined, 'Voucher Saya',
+                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyVouchersScreen()))),
+                const Divider(height: 1),
+                _menu(Icons.star_outline_rounded, 'Ulasan Saya',
+                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyReviewsScreen()))),
                 const Divider(height: 1),
                 _menu(Icons.person_outline, 'Edit Profil', () => _editProfile(context)),
                 const Divider(height: 1),
@@ -1110,16 +996,33 @@ class AkunTab extends StatelessWidget {
                   () => showAboutDialog(
                     context: context,
                     applicationName: 'CleanDrive',
-                    applicationVersion: '1.0.0',
+                    applicationVersion: '1.1.0',
                     applicationLegalese: 'Aplikasi booking dan tracking antrean cuci kendaraan.',
                   ),
                 ),
               ]),
             ),
             const SizedBox(height: 14),
-            _Panel(
+            Panel(
               padding: const EdgeInsets.symmetric(vertical: 16),
-              onTap: () => _confirmLogout(context),
+              onTap: () => showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Keluar dari akun?'),
+                  content: const Text('Kamu perlu masuk lagi untuk melihat pesananmu.'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+                    FilledButton(
+                      style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        app.logout();
+                      },
+                      child: const Text('Keluar'),
+                    ),
+                  ],
+                ),
+              ),
               child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 Icon(Icons.logout, color: kRed, size: 20),
                 SizedBox(width: 8),
