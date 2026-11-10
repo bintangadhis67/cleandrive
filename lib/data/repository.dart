@@ -1,4 +1,6 @@
+import '../loyalty_models.dart';
 import '../models.dart';
+import '../notification_models.dart';
 
 class ApiException implements Exception {
   final String message;
@@ -73,19 +75,32 @@ abstract class Repository {
     required String plate,
     required DateTime slot,
     String? voucherCode,
+    List<OrderLine> items = const [],
   });
   Future<Booking> cancelBooking(String id);
 
   Future<List<Voucher>> vouchers();
   Future<Voucher> claimVoucher(String id);
 
-  Future<Payment> startPayment(String bookingId, PayMethod method);
+  /// [coins] = jumlah Coins yang ditukar jadi potongan (kelipatan 10). Coins baru dipotong saat pembayaran berhasil.
+  Future<Payment> startPayment(String bookingId, PayMethod method, {int coins = 0});
   Future<Payment> payment(String id);
   Future<Payment> confirmPayment(String id); // e-wallet
   Future<Payment> simulateQrisPaid(String id); // hanya mode sandbox
 
   Future<Booking> submitReview(String bookingId, int rating, String comment);
   Future<RatingSummary> ratingSummary();
+
+  // coins & membership
+  Future<LoyaltyInfo> loyalty();
+  Future<CoinAward> checkIn();
+  Future<CoinAward> claimPromo(String id);
+
+  // notifikasi
+  Future<List<AppNotification>> notifications();
+  Future<void> markNotificationRead(String id);
+  Future<void> markAllNotificationsRead();
+  Future<void> deleteNotification(String id);
 
   // admin
   Future<Booking> verify(String code);

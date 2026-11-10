@@ -1,11 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'app_state.dart';
+import 'catalog.dart';
 import 'data/repository.dart';
+import 'loyalty.dart';
+import 'loyalty_models.dart';
 import 'models.dart';
+import 'notification_models.dart';
+import 'notifications.dart';
 import 'orders.dart';
 import 'payment.dart';
+import 'shop.dart';
 import 'theme.dart';
 import 'voucher.dart';
 import 'widgets.dart';
@@ -27,32 +35,67 @@ class _HomeScreenState extends State<HomeScreen> {
   int _idx = 0; // 0 Beranda, 1 Pesanan, 2 Booking, 3 Layanan, 4 Akun
   WashPackage? _pack;
   VehicleType? _vehicle;
+  Timer? _poll;
 
   @override
   void initState() {
     super.initState();
     app.addListener(_onApp);
+    // Pengganti push notification: cek notifikasi baru berkala (dengan backend sungguhan,
+    // bagian ini diganti Firebase Cloud Messaging).
+    _poll = Timer.periodic(const Duration(seconds: 10), (_) => app.refreshNotifications());
   }
 
   @override
   void dispose() {
+    _poll?.cancel();
     app.removeListener(_onApp);
     super.dispose();
   }
 
-  /// Layar lain (voucher, pembayaran) bisa meminta pindah tab lewat app.requestTab().
+  /// Layar lain (voucher, pembayaran, toko) bisa meminta pindah tab lewat app.requestTab().
   void _onApp() {
     final t = app.requestedTab;
     if (t != null) {
+      final p = app.requestedPack, v = app.requestedVehicle;
       app.requestedTab = null;
+      app.requestedPack = null;
+      app.requestedVehicle = null;
       if (mounted) {
         setState(() {
           _idx = t;
-          _pack = null;
-          _vehicle = null;
+          _pack = p;
+          _vehicle = v;
         });
       }
     }
+    final n = app.banner;
+    if (n != null) {
+      app.banner = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showBanner(n);
+      });
+    }
+  }
+
+  /// Banner notifikasi di dalam aplikasi.
+  void _showBanner(AppNotification n) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        duration: const Duration(seconds: 6),
+        content: Row(children: [
+          Icon(n.type.icon, color: kGold),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(n.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+              Text(n.body, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _creamMuted, fontSize: 12.5)),
+            ]),
+          ),
+        ]),
+        action: SnackBarAction(label: 'Lihat', textColor: kGold, onPressed: () => openNotification(context, n)),
+      ));
   }
 
   void _go(int i, {WashPackage? pack, VehicleType? vehicle}) => setState(() {
@@ -201,6 +244,8 @@ class BerandaTab extends StatelessWidget {
         ),
       );
 
+  void _push(BuildContext context, Widget page) => Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
         listenable: app,
@@ -229,6 +274,8 @@ class BerandaTab extends StatelessWidget {
                       const Text('Siap cuci kendaraanmu hari ini?', style: TextStyle(color: kMuted)),
                     ]),
                   ),
+                  const NotifBell(),
+                  const SizedBox(width: 10),
                   GestureDetector(
                     onTap: () => onGo(4),
                     child: CircleAvatar(
@@ -242,6 +289,8 @@ class BerandaTab extends StatelessWidget {
               ),
               _hero(),
               const SizedBox(height: 16),
+              const MemberHomeCard(),
+              const SizedBox(height: 16),
               const VoucherHomeCard(),
               const SizedBox(height: 16),
               Panel(
@@ -252,22 +301,28 @@ class BerandaTab extends StatelessWidget {
                     _quick(Icons.event_available, 'Booking', () => onGo(2)),
                     _quick(Icons.receipt_long, 'Pesanan', () => onGo(1)),
                     _quick(Icons.local_car_wash, 'Layanan', () => onGo(3)),
-                    _quick(Icons.local_offer_outlined, 'Voucher',
-                        () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyVouchersScreen()))),
+                    _quick(Icons.local_offer_outlined, 'Voucher', () => _push(context, const MyVouchersScreen())),
+                  ]),
+                  const SizedBox(height: 6),
+                  Row(children: [
+                    _quick(Icons.storefront_rounded, 'Toko', () => _push(context, const ShopScreen())),
+                    _quick(Icons.opacity_rounded, 'Ganti Oli', () => onGo(2, pack: oilChangePackage)),
+                    _quick(Icons.workspace_premium_rounded, 'Member', () => _push(context, const LoyaltyScreen())),
+                    _quick(Icons.star_outline_rounded, 'Ulasan', () => _push(context, const MyReviewsScreen())),
                   ]),
                 ]),
               ),
               if (toReview != null) ...[
                 const SizedBox(height: 16),
                 Panel(
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ReviewScreen(bookingId: toReview.id))),
+                  onTap: () => _push(context, ReviewScreen(bookingId: toReview.id)),
                   child: Row(children: [
                     const Icon(Icons.star_rounded, color: kGold, size: 34),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        const Text('Bagaimana hasil cucianmu?', style: TextStyle(fontWeight: FontWeight.w800)),
-                        Text('${toReview.pack.name} • ${toReview.plate}. Beri rating dan ulasan.',
+                        const Text('Bagaimana hasil layanannya?', style: TextStyle(fontWeight: FontWeight.w800)),
+                        Text('${toReview.label}. Beri ulasan dan dapat +$kReviewCoins Coins.',
                             style: const TextStyle(fontSize: 12.5, color: kMuted)),
                       ]),
                     ),
@@ -275,18 +330,19 @@ class BerandaTab extends StatelessWidget {
                   ]),
                 ),
               ],
-              sec('Cucian aktif', trailing: TextButton(onPressed: () => onGo(1), child: const Text('Lihat Semua'))),
+              sec('Pesanan aktif', trailing: TextButton(onPressed: () => onGo(1), child: const Text('Lihat Semua'))),
               if (active.isEmpty)
                 Panel(
                   child: Row(children: [
                     const Icon(Icons.local_car_wash_outlined, size: 32, color: kMuted),
                     const SizedBox(width: 12),
-                    const Expanded(child: Text('Belum ada cucian aktif.', style: TextStyle(color: kMuted))),
+                    const Expanded(child: Text('Belum ada pesanan aktif.', style: TextStyle(color: kMuted))),
                     TextButton(onPressed: () => onGo(2), child: const Text('Booking')),
                   ]),
                 )
               else
                 _ActiveCard(active.first),
+              const ShopHomeSection(),
             ]),
           );
         },
@@ -306,7 +362,7 @@ class _ActiveCard extends StatelessWidget {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(b.code, style: const TextStyle(fontSize: 11.5, color: kMuted)),
-                Text('${b.pack.name} • ${b.plate}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                Text(b.label, style: const TextStyle(fontWeight: FontWeight.w800)),
                 Text(fmtDateTime.format(b.slot), style: const TextStyle(fontSize: 12.5, color: kMuted)),
               ]),
             ),
@@ -324,7 +380,7 @@ class _ActiveCard extends StatelessWidget {
           Row(children: [
             const Icon(Icons.timer_outlined, size: 16, color: kMuted),
             const SizedBox(width: 6),
-            Text('Estimasi selesai ${fmtHm.format(b.estFinish)}', style: const TextStyle(fontSize: 12.5, color: kMuted)),
+            Text(b.pack.isShop ? 'Pesanan toko' : 'Estimasi selesai ${fmtHm.format(b.estFinish)}', style: const TextStyle(fontSize: 12.5, color: kMuted)),
             const Spacer(),
             PayChip(b),
           ]),
@@ -375,8 +431,7 @@ class _LayananTabState extends State<LayananTab> {
               Expanded(
                 flex: 5,
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('${p.name} Wash',
-                      style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800)),
+                  Text(p.title, style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800)),
                   const SizedBox(height: 2),
                   Text(p.desc, style: const TextStyle(color: _creamMuted, fontSize: 12.5)),
                   const SizedBox(height: 6),
@@ -419,11 +474,64 @@ class _LayananTabState extends State<LayananTab> {
     );
   }
 
+  /// Kartu jasa penggantian oli.
+  Widget _oilCard() {
+    const p = oilChangePackage;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      child: NavyCard(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 18, 14, 16),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+            Expanded(
+              flex: 5,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(p.title, style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 2),
+                Text(p.desc, style: const TextStyle(color: _creamMuted, fontSize: 12.5)),
+                const SizedBox(height: 6),
+                Row(children: [
+                  const Icon(Icons.timer_outlined, size: 14, color: _creamMuted),
+                  const SizedBox(width: 4),
+                  Text('${p.minutes} menit', style: const TextStyle(color: _creamMuted, fontSize: 12.5)),
+                ]),
+                const SizedBox(height: 12),
+                Text(rp(p.priceFor(_v)), style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
+                const Text('jasa, belum termasuk oli', style: TextStyle(color: _creamMuted, fontSize: 11.5)),
+                const SizedBox(height: 10),
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 42),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () => widget.onGo(2, pack: p, vehicle: _v),
+                  icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                  label: const Text('Pesan', style: TextStyle(fontWeight: FontWeight.w800)),
+                ),
+              ]),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 4,
+              child: Container(
+                height: 150,
+                decoration: BoxDecoration(color: const Color(0xFFEFF1F5), borderRadius: BorderRadius.circular(18)),
+                padding: const EdgeInsets.all(8),
+                child: Image.asset(p.imageFor(_v), fit: BoxFit.contain, cacheWidth: 400),
+              ),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
         listenable: app,
         builder: (context, _) => ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: [
-          pageHeader('Layanan Kami', 'Pilih kendaraan, lihat harga tiap paket.'),
+          pageHeader('Layanan Kami', 'Pilih kendaraan, lihat harga tiap layanan.'),
           if (app.rating.count > 0)
             Padding(
               padding: const EdgeInsets.only(bottom: 14),
@@ -437,11 +545,27 @@ class _LayananTabState extends State<LayananTab> {
           Row(children: [for (final v in VehicleType.values) _pill(v)]),
           const SizedBox(height: 16),
           for (final p in packages) _serviceCard(p),
+          sec('Layanan tambahan', top: 8),
+          _oilCard(),
+          Panel(
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ShopScreen())),
+            child: const Row(children: [
+              Icon(Icons.storefront_rounded, color: kNavy, size: 32),
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Toko CleanDrive', style: TextStyle(fontWeight: FontWeight.w800)),
+                  Text('Camilan, minuman, dan oli untuk kendaraanmu.', style: TextStyle(color: kMuted, fontSize: 12.5)),
+                ]),
+              ),
+              Icon(Icons.chevron_right, color: kMuted),
+            ]),
+          ),
         ]),
       );
 }
 
-// ---------- BOOKING (pilih kendaraan, paket, jadwal) ----------
+// ---------- BOOKING (cuci atau ganti oli: pilih kendaraan, paket, jadwal) ----------
 class BookingScreen extends StatefulWidget {
   final WashPackage? initialPack;
   final VehicleType? initialVehicle;
@@ -453,11 +577,16 @@ class BookingScreen extends StatefulWidget {
 class _BookingScreenState extends State<BookingScreen> {
   late VehicleType _v = widget.initialVehicle ?? VehicleType.mobil;
   late WashPackage _p = widget.initialPack ?? packages[1];
+  Product? _oil; // oli yang dipilih (jasa ganti oli)
+  bool _ownOil = false; // bawa oli sendiri
   final _plate = TextEditingController();
   int _dayOffset = 0;
   int? _hour;
   Map<int, int> _counts = {};
   bool _loadingSlots = false;
+
+  bool get _isOil => _p.isOil;
+  int get _price => _p.priceFor(_v) + (_oil?.price ?? 0);
 
   @override
   void initState() {
@@ -490,15 +619,29 @@ class _BookingScreenState extends State<BookingScreen> {
     }
   }
 
-  /// Estimasi selesai = jam datang + durasi paket + 10 menit per antrean di depan.
+  /// Estimasi selesai = jam datang + durasi layanan + 10 menit per antrean di depan.
   DateTime _estimate(DateTime slot) => slot.add(Duration(minutes: _p.minutes + _count(slot.hour) * 10));
+
+  void _setOilMode(bool oil) => setState(() {
+        _p = oil ? oilChangePackage : packages[1];
+        _oil = null;
+        _ownOil = false;
+      });
 
   void _next() {
     final slot = _day.add(Duration(hours: _hour!));
+    final oil = _oil;
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ConfirmOrderScreen(vehicle: _v, pack: _p, plate: _plate.text.trim(), slot: slot, estimate: _estimate(slot)),
+        builder: (_) => ConfirmOrderScreen(
+          vehicle: _v,
+          pack: _p,
+          plate: _plate.text.trim(),
+          slot: slot,
+          estimate: _estimate(slot),
+          items: _isOil && oil != null ? [OrderLine(oil, 1)] : const [],
+        ),
       ),
     );
   }
@@ -518,12 +661,30 @@ class _BookingScreenState extends State<BookingScreen> {
         ),
       );
 
+  Widget _modeTile(String label, IconData icon, bool selected, VoidCallback onTap) {
+    final fg = selected ? Colors.white : kNavy;
+    return _choice(
+      selected: selected,
+      onTap: onTap,
+      vertical: 12,
+      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(icon, size: 20, color: fg),
+        const SizedBox(width: 8),
+        Text(label, style: TextStyle(fontWeight: FontWeight.w800, color: fg)),
+      ]),
+    );
+  }
+
   Widget _vehicleTile(VehicleType v) {
     final sel = _v == v;
     final fg = sel ? Colors.white : kNavy;
     return _choice(
       selected: sel,
-      onTap: () => setState(() => _v = v),
+      onTap: () => setState(() {
+        _v = v;
+        final o = _oil;
+        if (o != null && !o.fits(v)) _oil = null; // oli harus cocok dengan kendaraan
+      }),
       vertical: 16,
       child: Column(children: [
         Icon(vehicleIcon(v), size: 30, color: fg),
@@ -552,7 +713,7 @@ class _BookingScreenState extends State<BookingScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('${p.name} Wash', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)),
+                Text(p.title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)),
                 Text(p.desc, style: const TextStyle(fontSize: 12, color: kMuted)),
                 const SizedBox(height: 4),
                 Row(children: [
@@ -571,6 +732,79 @@ class _BookingScreenState extends State<BookingScreen> {
       ),
     );
   }
+
+  Widget _oilTile(Product o) {
+    final sel = _oil?.id == o.id;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GestureDetector(
+        onTap: () => setState(() {
+          _oil = o;
+          _ownOil = false;
+        }),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: sel ? kRed : kLine, width: sel ? 2.5 : 1),
+          ),
+          child: Row(children: [
+            Container(
+              width: 66,
+              height: 66,
+              decoration: BoxDecoration(color: const Color(0xFFEFF1F5), borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.all(4),
+              child: ProductImage(o),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(o.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
+                Text(o.desc, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: kMuted)),
+              ]),
+            ),
+            const SizedBox(width: 8),
+            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text(rp(o.price), style: const TextStyle(fontWeight: FontWeight.w800, color: kRed, fontSize: 13.5)),
+              if (sel) const Icon(Icons.check_circle, color: kRed, size: 20),
+            ]),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _ownOilTile() => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: GestureDetector(
+          onTap: () => setState(() {
+            _ownOil = true;
+            _oil = null;
+          }),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: _ownOil ? kRed : kLine, width: _ownOil ? 2.5 : 1),
+            ),
+            child: Row(children: [
+              const Icon(Icons.inventory_2_outlined, size: 30, color: kNavy),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Bawa oli sendiri', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
+                  Text('Hanya bayar jasa penggantian oli', style: TextStyle(fontSize: 12, color: kMuted)),
+                ]),
+              ),
+              if (_ownOil) const Icon(Icons.check_circle, color: kRed, size: 20),
+            ]),
+          ),
+        ),
+      );
 
   Widget _dayTile(int i) {
     final d = DateTime.now().add(Duration(days: i));
@@ -620,16 +854,19 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   Widget _bottomBar(DateTime? slot) {
-    final ready = slot != null && _plate.text.trim().isNotEmpty;
+    final oilReady = !_isOil || _oil != null || _ownOil;
+    final ready = slot != null && _plate.text.trim().isNotEmpty && oilReady;
+    final hint = !oilReady
+        ? 'Pilih oli dulu'
+        : (slot == null ? 'Pilih jam kedatangan' : 'Selesai sekitar ${fmtHm.format(_estimate(slot))}');
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: kLine))),
       child: Row(children: [
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-            Text(rp(_p.priceFor(_v)), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-            Text(slot == null ? 'Pilih jam kedatangan' : 'Selesai sekitar ${fmtHm.format(_estimate(slot))}',
-                style: const TextStyle(fontSize: 12.5, color: kMuted)),
+            Text(rp(_price), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+            Text(hint, style: const TextStyle(fontSize: 12.5, color: kMuted)),
           ]),
         ),
         FilledButton.icon(
@@ -645,10 +882,22 @@ class _BookingScreenState extends State<BookingScreen> {
   @override
   Widget build(BuildContext context) {
     final slot = _hour == null ? null : _day.add(Duration(hours: _hour!));
+    final oils = productsIn(ProductCategory.oli).where((o) => o.fits(_v)).toList();
     return Column(children: [
       Expanded(
         child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 16), children: [
-          pageHeader('Booking Cuci', 'Pilih kendaraan, paket, dan jam kedatangan.'),
+          pageHeader(_isOil ? 'Ganti Oli' : 'Booking Cuci',
+              _isOil ? 'Pilih kendaraan, oli, dan jam kedatangan.' : 'Pilih kendaraan, paket, dan jam kedatangan.'),
+          Row(children: [
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: _modeTile('Cuci', Icons.local_car_wash_rounded, !_isOil, () => _setOilMode(false)),
+              ),
+            ),
+            Expanded(child: _modeTile('Ganti Oli', Icons.opacity_rounded, _isOil, () => _setOilMode(true))),
+          ]),
+          const SizedBox(height: 18),
           const Text('Jenis kendaraan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
           const SizedBox(height: 10),
           Row(children: [
@@ -666,8 +915,19 @@ class _BookingScreenState extends State<BookingScreen> {
               prefixIcon: Icon(Icons.confirmation_number_outlined),
             ),
           ),
-          sec('Paket cuci'),
-          for (final p in packages) _packTile(p),
+          if (_isOil) ...[
+            sec('Pilih oli'),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Text('Jasa penggantian ${rp(_p.priceFor(_v))} untuk ${_v.label}. Harga oli ditambahkan sesuai pilihanmu.',
+                  style: const TextStyle(color: kMuted, fontSize: 12.5)),
+            ),
+            for (final o in oils) _oilTile(o),
+            _ownOilTile(),
+          ] else ...[
+            sec('Paket cuci'),
+            for (final p in packages) _packTile(p),
+          ],
           sec('Tanggal', top: 12),
           Row(children: [for (var i = 0; i < 3; i++) _dayTile(i)]),
           sec('Jam kedatangan'),
@@ -688,6 +948,7 @@ class ConfirmOrderScreen extends StatefulWidget {
   final WashPackage pack;
   final String plate;
   final DateTime slot, estimate;
+  final List<OrderLine> items;
   const ConfirmOrderScreen({
     super.key,
     required this.vehicle,
@@ -695,6 +956,7 @@ class ConfirmOrderScreen extends StatefulWidget {
     required this.plate,
     required this.slot,
     required this.estimate,
+    this.items = const [],
   });
   @override
   State<ConfirmOrderScreen> createState() => _ConfirmOrderScreenState();
@@ -704,7 +966,9 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
   Voucher? _voucher;
   bool _busy = false;
 
-  int get _price => widget.pack.priceFor(widget.vehicle);
+  int get _servicePrice => widget.pack.priceFor(widget.vehicle);
+  int get _itemsTotal => widget.items.fold(0, (s, l) => s + l.subtotal);
+  int get _price => _servicePrice + _itemsTotal;
   int get _discount => _voucher?.discountFor(_price) ?? 0;
 
   @override
@@ -774,6 +1038,7 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
         plate: widget.plate,
         slot: widget.slot,
         voucherCode: _voucher?.code,
+        items: widget.items,
       ),
     );
     if (!mounted) return;
@@ -788,6 +1053,8 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
   @override
   Widget build(BuildContext context) {
     final total = _price - _discount;
+    final estCoins = withTierBonus(payBandFor(total).coins, app.tier);
+    final pack = widget.pack;
     return Scaffold(
       appBar: AppBar(title: const Text('Konfirmasi Pesanan')),
       body: Center(
@@ -796,17 +1063,29 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
           child: ListView(padding: const EdgeInsets.all(16), children: [
             Panel(
               child: Column(children: [
-                kv('Paket', '${widget.pack.name} Wash'),
-                kv('Kendaraan', widget.vehicle.label),
-                kv('Nomor Polisi', widget.plate.toUpperCase()),
-                kv('Tanggal', fmtDate.format(widget.slot)),
-                kv('Jam', '${fmtHm.format(widget.slot)} WIB'),
-                kv('Estimasi Selesai', '${fmtHm.format(widget.estimate)} WIB'),
+                if (pack.isShop) ...[
+                  kv('Jenis', 'Pesanan Toko'),
+                  kv('Jumlah', '${widget.items.fold(0, (s, l) => s + l.qty)} item'),
+                  kv('Ambil di', 'Kasir CleanDrive'),
+                ] else ...[
+                  kv(pack.isOil ? 'Layanan' : 'Paket', pack.title),
+                  kv('Kendaraan', widget.vehicle.label),
+                  kv('Nomor Polisi', widget.plate.toUpperCase()),
+                  kv('Tanggal', fmtDate.format(widget.slot)),
+                  kv('Jam', '${fmtHm.format(widget.slot)} WIB'),
+                  kv('Estimasi Selesai', '${fmtHm.format(widget.estimate)} WIB'),
+                  if (pack.isOil && widget.items.isEmpty) kv('Oli', 'Dibawa sendiri'),
+                ],
               ]),
             ),
             const SizedBox(height: 14),
             Panel(
               child: Column(children: [
+                if (widget.items.isNotEmpty) ...[
+                  if (!pack.isShop) kv(pack.title, rp(_servicePrice)),
+                  for (final l in widget.items) kv('${l.product.name} ×${l.qty}', rp(l.subtotal)),
+                  const Divider(height: 18),
+                ],
                 kv('Total Harga', rp(_price), bold: true),
                 kv('Voucher', _discount > 0 ? '- ${rp(_discount)}' : '-', valueColor: _discount > 0 ? kGreen : kNavy),
                 const SizedBox(height: 4),
@@ -839,13 +1118,22 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
                   const Expanded(child: Text('Total Bayar', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
                   Text(rp(total), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
                 ]),
+                const SizedBox(height: 10),
+                Row(children: [
+                  const Icon(Icons.monetization_on_rounded, size: 18, color: kGold),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text('Perkiraan dapat +$estCoins Coins setelah pembayaran',
+                        style: const TextStyle(color: kMuted, fontSize: 12.5, fontWeight: FontWeight.w600)),
+                  ),
+                ]),
               ]),
             ),
             const SizedBox(height: 20),
             RedButton('Konfirmasi Pesanan', busy: _busy, onPressed: _confirm),
             const SizedBox(height: 14),
             const Text(
-              'Setelah dikonfirmasi, kamu akan diarahkan ke pembayaran. Pesanan baru aktif setelah dibayar.',
+              'Setelah dikonfirmasi, kamu akan diarahkan ke pembayaran dan bisa menukar Coins jadi potongan harga. Pesanan baru aktif setelah dibayar.',
               textAlign: TextAlign.center,
               style: TextStyle(color: kMuted, fontSize: 12.5, height: 1.4),
             ),
@@ -972,6 +1260,8 @@ class AkunTab extends StatelessWidget {
                 Text(name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
                 if (app.email.isNotEmpty) Text(app.email, style: const TextStyle(color: kMuted)),
                 if (app.phone.isNotEmpty) Text(app.phone, style: const TextStyle(color: kMuted)),
+                const SizedBox(height: 10),
+                TierBadge(app.tier),
               ]),
             ),
             const SizedBox(height: 22),
@@ -979,6 +1269,15 @@ class AkunTab extends StatelessWidget {
               padding: EdgeInsets.zero,
               child: Column(children: [
                 _menu(Icons.receipt_long_outlined, 'Pesanan Saya', () => onGo(1)),
+                const Divider(height: 1),
+                _menu(Icons.workspace_premium_outlined, 'Membership & Coins',
+                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LoyaltyScreen()))),
+                const Divider(height: 1),
+                _menu(Icons.notifications_none_rounded, app.unreadCount > 0 ? 'Notifikasi (${app.unreadCount} baru)' : 'Notifikasi',
+                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen()))),
+                const Divider(height: 1),
+                _menu(Icons.storefront_outlined, 'Toko CleanDrive',
+                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ShopScreen()))),
                 const Divider(height: 1),
                 _menu(Icons.local_offer_outlined, 'Voucher Saya',
                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyVouchersScreen()))),
@@ -996,7 +1295,7 @@ class AkunTab extends StatelessWidget {
                   () => showAboutDialog(
                     context: context,
                     applicationName: 'CleanDrive',
-                    applicationVersion: '1.1.0',
+                    applicationVersion: '1.2.0',
                     applicationLegalese: 'Aplikasi booking dan tracking antrean cuci kendaraan.',
                   ),
                 ),

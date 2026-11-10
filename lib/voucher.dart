@@ -100,6 +100,16 @@ class VoucherTicket extends StatelessWidget {
           if (v.note.isNotEmpty) Text(v.note, style: const TextStyle(color: kMuted)),
           Text('Min. transaksi ${rp(v.minTransaction)}', style: const TextStyle(color: kMuted)),
           Text('Berlaku hingga ${fmtDate.format(v.validUntil)}', style: const TextStyle(color: kMuted)),
+          if (v.minTier > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(v.locked ? Icons.lock_outline_rounded : Icons.workspace_premium_rounded, size: 16, color: kRed),
+                const SizedBox(width: 5),
+                Text(v.locked ? 'Terkunci • khusus member ${v.tierLabel}' : 'Reward member ${v.tierLabel}',
+                    style: const TextStyle(color: kRed, fontWeight: FontWeight.w800, fontSize: 12.5)),
+              ]),
+            ),
         ]),
       );
 }
@@ -182,7 +192,7 @@ class _VoucherClaimScreenState extends State<VoucherClaimScreen> {
             _terms(v),
             const SizedBox(height: 28),
             if (!_claimed)
-              RedButton('Klaim Sekarang', busy: _busy, onPressed: _claim)
+              RedButton(v.locked ? 'Khusus Member ${v.tierLabel}' : 'Klaim Sekarang', busy: _busy, onPressed: v.locked ? null : _claim)
             else ...[
               RedButton('Gunakan Sekarang', onPressed: () => _useVoucher(context, v)),
               const SizedBox(height: 6),
@@ -222,14 +232,14 @@ class MyVouchersScreen extends StatelessWidget {
                       Row(children: [
                         Expanded(
                           child: Text(
-                            v.used ? 'Sudah dipakai' : (v.expired ? 'Kedaluwarsa' : (v.claimed ? 'Siap dipakai' : 'Belum diklaim')),
+                            v.used ? 'Sudah dipakai' : (v.expired ? 'Kedaluwarsa' : (v.claimed ? 'Siap dipakai' : (v.locked ? 'Khusus member ${v.tierLabel}' : 'Belum diklaim'))),
                             style: TextStyle(
                               fontWeight: FontWeight.w800,
                               color: v.usable ? kGreen : kMuted,
                             ),
                           ),
                         ),
-                        if (!v.claimed && !v.expired)
+                        if (v.claimable)
                           FilledButton(
                             style: FilledButton.styleFrom(minimumSize: const Size(0, 40), backgroundColor: kNavy),
                             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => VoucherClaimScreen(voucher: v))),

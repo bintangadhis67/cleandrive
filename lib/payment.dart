@@ -5,6 +5,8 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import 'app_state.dart';
 import 'data/repository.dart';
+import 'loyalty.dart';
+import 'loyalty_models.dart';
 import 'models.dart';
 import 'orders.dart';
 import 'theme.dart';
@@ -20,11 +22,20 @@ class PaymentMethodScreen extends StatefulWidget {
 
 class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
   bool _busy = false;
+  int _coins = 0; // Coins yang dipilih untuk ditukar jadi potongan
+
+  /// Coins efektif: tidak melebihi batas penukaran dan minimal 10.
+  int _effCoins(Booking b) {
+    final max = maxRedeemCoins(total: b.total, balance: app.loyalty.balance, tier: app.loyalty.tier);
+    final c = _coins > max ? max : _coins;
+    return c < 10 ? 0 : c;
+  }
 
   Future<void> _choose(Booking b, PayMethod m) async {
     if (_busy) return;
+    final coins = _effCoins(b);
     setState(() => _busy = true);
-    final p = await guard(context, () => app.startPayment(b.id, m));
+    final p = await guard(context, () => app.startPayment(b.id, m, coins: coins));
     if (!mounted) return;
     setState(() => _busy = false);
     if (p == null) return;
@@ -40,6 +51,8 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
         builder: (context, _) {
           final b = app.byId(widget.bookingId);
           if (b == null) return Scaffold(appBar: AppBar(), body: const Center(child: Text('Pesanan tidak ditemukan.')));
+          final coins = _effCoins(b);
+          final pay = b.total - coins * kCoinValue;
           return Scaffold(
             appBar: AppBar(title: const Text('Pilih Metode Pembayaran')),
             body: Center(
@@ -47,11 +60,23 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
                 constraints: const BoxConstraints(maxWidth: 520),
                 child: ListView(padding: const EdgeInsets.all(16), children: [
                   Panel(
-                    child: Row(children: [
-                      const Expanded(child: Text('Total Bayar', style: TextStyle(fontWeight: FontWeight.w800))),
-                      Text(rp(b.total), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                    child: Column(children: [
+                      Row(children: [
+                        const Expanded(child: Text('Total Bayar', style: TextStyle(fontWeight: FontWeight.w800))),
+                        Text(rp(pay), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                      ]),
+                      if (coins > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Row(children: [
+                            Expanded(child: Text('${rp(b.total)} dipotong $coins Coins', style: const TextStyle(color: kMuted, fontSize: 12.5))),
+                            Text('- ${rp(coins * kCoinValue)}', style: const TextStyle(color: kGreen, fontWeight: FontWeight.w800, fontSize: 13)),
+                          ]),
+                        ),
                     ]),
                   ),
+                  const SizedBox(height: 12),
+                  RedeemCard(total: b.total, coins: coins, onChanged: (v) => setState(() => _coins = v)),
                   const SizedBox(height: 14),
                   for (final m in PayMethod.values)
                     Padding(
@@ -172,7 +197,7 @@ class _QrisPayScreenState extends State<QrisPayScreen> {
 
   Future<void> _renew() async {
     setState(() => _busy = true);
-    final p = await guard(context, () => app.startPayment(_p.bookingId, PayMethod.qris));
+    final p = await guard(context, () => app.startPayment(_p.bookingId, PayMethod.qris, coins: _p.coinsUsed));
     if (!mounted) return;
     setState(() {
       _busy = false;
@@ -192,6 +217,9 @@ class _QrisPayScreenState extends State<QrisPayScreen> {
           child: ListView(padding: const EdgeInsets.all(20), children: [
             const Text('Total Pembayaran', style: TextStyle(color: kMuted)),
             Text(rp(_p.amount), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
+            if (_p.coinsUsed > 0)
+              Text('Sudah dipotong ${_p.coinsUsed} Coins (- ${rp(_p.coinDiscount)})',
+                  style: const TextStyle(color: kGreen, fontWeight: FontWeight.w700, fontSize: 13)),
             const SizedBox(height: 18),
             const Center(child: Text('Scan QR Code berikut', style: TextStyle(fontWeight: FontWeight.w700))),
             const SizedBox(height: 12),
@@ -281,6 +309,9 @@ class _EwalletPayScreenState extends State<EwalletPayScreen> {
           child: ListView(padding: const EdgeInsets.all(20), children: [
             const Text('Total Pembayaran', style: TextStyle(color: kMuted)),
             Text(rp(p.amount), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
+            if (p.coinsUsed > 0)
+              Text('Sudah dipotong ${p.coinsUsed} Coins (- ${rp(p.coinDiscount)})',
+                  style: const TextStyle(color: kGreen, fontWeight: FontWeight.w700, fontSize: 13)),
             const SizedBox(height: 18),
             Panel(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -292,7 +323,7 @@ class _EwalletPayScreenState extends State<EwalletPayScreen> {
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(p.method.label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                      Text('Saldo (simulasi): ${rp(balance)}',
+                      Text('${p.method.isBank ? 'Saldo rekening' : 'Saldo'} (simulasi): ${rp(balance)}',
                           style: TextStyle(fontSize: 13, color: enough ? kMuted : kRed, fontWeight: FontWeight.w600)),
                     ]),
                   ),
@@ -358,8 +389,46 @@ class PaymentSuccessScreen extends StatelessWidget {
                     kv('Metode', payment.method.label, bold: true),
                     const Divider(height: 18),
                     kv('Total Pembayaran', rp(payment.amount), bold: true),
+                    if (payment.coinsUsed > 0) ...[
+                      const Divider(height: 18),
+                      kv('Potongan Coins', '- ${rp(payment.coinDiscount)} (${payment.coinsUsed} Coins)', valueColor: kGreen),
+                    ],
                   ]),
                 ),
+                if (payment.coinsEarned > 0) ...[
+                  const SizedBox(height: 14),
+                  Panel(
+                    color: const Color(0x1FF5B31B),
+                    child: Row(children: [
+                      const Icon(Icons.monetization_on_rounded, color: kGold, size: 38),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('Kamu dapat +${payment.coinsEarned} Coins!', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                          Text('Transaksi tingkat ${payBandFor(payment.amount).label} (${payBandFor(payment.amount).range}).',
+                              style: const TextStyle(color: kMuted, fontSize: 12.5)),
+                        ]),
+                      ),
+                    ]),
+                  ),
+                ],
+                if (payment.levelUp != null) ...[
+                  const SizedBox(height: 10),
+                  Panel(
+                    onTap: () => showLevelUp(context, payment.levelUp!),
+                    child: Row(children: [
+                      Icon(payment.levelUp!.icon, color: payment.levelUp!.color, size: 34),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('Selamat, kamu naik ke ${payment.levelUp!.label}!', style: const TextStyle(fontWeight: FontWeight.w800)),
+                          const Text('Ketuk untuk lihat keuntungan barumu.', style: TextStyle(color: kMuted, fontSize: 12.5)),
+                        ]),
+                      ),
+                      const Icon(Icons.chevron_right, color: kMuted),
+                    ]),
+                  ),
+                ],
                 const SizedBox(height: 20),
                 const Text('Terima kasih, pesanan Anda sudah dikonfirmasi.',
                     textAlign: TextAlign.center, style: TextStyle(color: kMuted)),

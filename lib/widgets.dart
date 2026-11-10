@@ -132,7 +132,7 @@ class StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = b.cancelled ? const Color(0xFFB3261E) : kStatusColors[b.status];
-    final t = b.cancelled ? 'Dibatalkan' : statusLabels[b.status];
+    final t = b.cancelled ? 'Dibatalkan' : b.statusLabel;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(color: c.withOpacity(.14), borderRadius: BorderRadius.circular(20)),
@@ -222,14 +222,28 @@ class ServiceThumb extends StatelessWidget {
   const ServiceThumb(this.pack, this.vehicle, {super.key, this.width = 84});
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) {
+    final h = width * .6;
+    if (pack.isOil) {
+      return Container(
         width: width,
-        height: width * .6,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [kNavyLight, kNavySoft]),
-        ),
+        height: h,
+        decoration: BoxDecoration(color: const Color(0xFFEFF1F5), borderRadius: BorderRadius.circular(14)),
         padding: const EdgeInsets.all(4),
-        child: Image.asset(pack.imageFor(vehicle), fit: BoxFit.contain),
+        child: Image.asset(pack.imageFor(vehicle), fit: BoxFit.contain, cacheWidth: 300),
       );
+    }
+    return Container(
+      width: width,
+      height: h,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [kNavyLight, kNavySoft]),
+      ),
+      padding: const EdgeInsets.all(4),
+      child: pack.isShop
+          ? Icon(Icons.shopping_bag_rounded, color: kCream, size: h * .5)
+          : Image.asset(pack.imageFor(vehicle), fit: BoxFit.contain),
+    );
+  }
 }

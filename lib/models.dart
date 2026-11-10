@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'catalog.dart';
+import 'loyalty_models.dart';
+
 // ---------------- kendaraan dan paket ----------------
 enum VehicleType { motor, mobil, suv }
 
@@ -11,14 +14,82 @@ extension VehicleX on VehicleType {
 VehicleType vehicleFrom(String s) =>
     VehicleType.values.firstWhere((v) => v.name == s, orElse: () => VehicleType.mobil);
 
+/// Jenis pesanan: cuci, ganti oli, atau belanja di toko.
+enum ServiceKind { wash, oil, shop }
+
 class WashPackage {
   final String name, desc;
   final int basePrice, minutes;
-  const WashPackage(this.name, this.desc, this.basePrice, this.minutes);
+  final ServiceKind kind;
+  const WashPackage(this.name, this.desc, this.basePrice, this.minutes, {this.kind = ServiceKind.wash});
+
+  bool get isOil => kind == ServiceKind.oil;
+  bool get isShop => kind == ServiceKind.shop;
+
+  String get title => kind == ServiceKind.wash ? '$name Wash' : name;
+
   int priceFor(VehicleType v) => (basePrice * v.factor).round();
 
-  /// Gambar layanan: assets/images/svc_{paket}_{kendaraan}.png
-  String imageFor(VehicleType v) => 'assets/images/svc_${name.toLowerCase()}_${v.name}.png';
+  /// Gambar layanan. Cuci: assets/images/svc_{paket}_{kendaraan}.png
+  String imageFor(VehicleType v) {
+    switch (kind) {
+      case ServiceKind.wash:
+        return 'assets/images/svc_${name.toLowerCase()}_${v.name}.png';
+      case ServiceKind.oil:
+        return v == VehicleType.motor ? 'assets/images/Oli_3.jpeg' : 'assets/images/Oli_4.jpeg';
+      case ServiceKind.shop:
+        return 'assets/images/Makanan_Ringan_8.jpeg';
+    }
+  }
+
+  /// Label status (indeks 0-3) sesuai jenis pesanan.
+  List<String> get statusNames {
+    switch (kind) {
+      case ServiceKind.wash:
+        return statusLabels;
+      case ServiceKind.oil:
+        return const ['Menunggu', 'Ganti Oli', 'Finishing', 'Selesai'];
+      case ServiceKind.shop:
+        return const ['Menunggu', 'Disiapkan', 'Siap Diambil', 'Selesai'];
+    }
+  }
+
+  List<String> get stageNames {
+    switch (kind) {
+      case ServiceKind.wash:
+        return const ['Menunggu giliran', 'Sedang dicuci', 'Finishing', 'Siap diambil'];
+      case ServiceKind.oil:
+        return const ['Menunggu giliran', 'Oli sedang diganti', 'Finishing', 'Siap diambil'];
+      case ServiceKind.shop:
+        return const ['Pesanan diterima', 'Sedang disiapkan', 'Siap diambil', 'Sudah diambil'];
+    }
+  }
+
+  List<String> get headlines {
+    switch (kind) {
+      case ServiceKind.wash:
+        return const [
+          'Kendaraanmu menunggu giliran',
+          'Kendaraanmu sedang dicuci!',
+          'Hampir selesai, tahap finishing!',
+          'Cucian selesai, siap diambil!',
+        ];
+      case ServiceKind.oil:
+        return const [
+          'Kendaraanmu menunggu giliran',
+          'Oli kendaraanmu sedang diganti!',
+          'Hampir selesai, tahap finishing!',
+          'Ganti oli selesai, siap diambil!',
+        ];
+      case ServiceKind.shop:
+        return const [
+          'Pesananmu sudah kami terima',
+          'Pesananmu sedang disiapkan!',
+          'Pesananmu siap diambil di kasir!',
+          'Pesanan sudah diambil, terima kasih!',
+        ];
+    }
+  }
 }
 
 const packages = [
@@ -27,8 +98,18 @@ const packages = [
   WashPackage('Detailing', 'Poles body, cuci mesin, interior deep clean', 150000, 120),
 ];
 
+/// Jasa penggantian oli (harga jasa per jenis kendaraan; harga oli dihitung terpisah).
+const oilChangePackage = WashPackage(
+    'Ganti Oli', 'Jasa penggantian oli mesin + cek level cairan', 20000, 30,
+    kind: ServiceKind.oil);
+
+/// Pesanan Toko (makanan, minuman, oli) tanpa jasa.
+const shopPackage = WashPackage('Belanja Toko', 'Pesanan Toko CleanDrive', 0, 5, kind: ServiceKind.shop);
+
+const allServices = [...packages, oilChangePackage, shopPackage];
+
 WashPackage packageByName(String n) =>
-    packages.firstWhere((p) => p.name.toLowerCase() == n.toLowerCase(), orElse: () => packages[1]);
+    allServices.firstWhere((p) => p.name.toLowerCase() == n.toLowerCase(), orElse: () => packages[1]);
 
 const statusLabels = ['Menunggu', 'Dicuci', 'Finishing', 'Selesai'];
 
@@ -38,19 +119,59 @@ String rp(int n) =>
 int _i(dynamic v) => (v as num).toInt();
 DateTime _dt(dynamic v) => DateTime.parse(v as String);
 
+// ---------------- produk toko ----------------
+enum ProductCategory {
+  makanan('Makanan', Icons.fastfood_rounded),
+  minuman('Minuman', Icons.local_drink_rounded),
+  oli('Oli', Icons.opacity_rounded);
+
+  const ProductCategory(this.label, this.icon);
+  final String label;
+  final IconData icon;
+}
+
+class Product {
+  final String id, name, desc, image;
+  final int price;
+  final ProductCategory category;
+
+  /// Khusus oli: jenis kendaraan yang cocok. Kosong = cocok untuk semua.
+  final Set<VehicleType> vehicles;
+
+  const Product(this.id, this.name, this.desc, this.price, this.category, this.image,
+      {this.vehicles = const {}});
+
+  bool fits(VehicleType v) => vehicles.isEmpty || vehicles.contains(v);
+
+  /// Label kendaraan untuk oli ("Motor" atau "Mobil"), kosong untuk produk lain.
+  String get vehicleTag {
+    if (vehicles.isEmpty) return '';
+    return vehicles.contains(VehicleType.motor) ? 'Motor' : 'Mobil';
+  }
+}
+
+class OrderLine {
+  final Product product;
+  final int qty;
+  const OrderLine(this.product, this.qty);
+  int get subtotal => product.price * qty;
+}
+
 // ---------------- pembayaran ----------------
 enum PayMethod {
   qris('QRIS', 'Bayar dengan QR Code', Color(0xFF111111), Icons.qr_code_2_rounded),
   gopay('GoPay', 'Bayar dengan GoPay', Color(0xFF00AED6), Icons.account_balance_wallet_rounded),
   ovo('OVO', 'Bayar dengan OVO', Color(0xFF4C2A86), Icons.radio_button_unchecked_rounded),
   dana('DANA', 'Bayar dengan DANA', Color(0xFF118EEA), Icons.blur_circular_rounded),
-  shopeepay('ShopeePay', 'Bayar dengan ShopeePay', Color(0xFFEE4D2D), Icons.account_balance_wallet_outlined);
+  shopeepay('ShopeePay', 'Bayar dengan ShopeePay', Color(0xFFEE4D2D), Icons.account_balance_wallet_outlined),
+  livin("Livin' by Mandiri", "Bayar dengan Livin' by Mandiri", Color(0xFF003D79), Icons.account_balance_rounded);
 
   const PayMethod(this.label, this.hint, this.color, this.icon);
   final String label, hint;
   final Color color;
   final IconData icon;
   bool get isQris => this == qris;
+  bool get isBank => this == livin;
 }
 
 PayMethod payMethodFrom(String s) =>
@@ -59,12 +180,20 @@ PayMethod payMethodFrom(String s) =>
 class Payment {
   final String id, trx, bookingId;
   final PayMethod method;
+
+  /// Total yang dibayar (sudah dipotong Coins bila ada).
   final int amount;
+  final int coinsUsed, coinDiscount;
   String status; // pending | paid | expired
   final DateTime expiresAt;
   final String? qrString;
   final int? balance;
   final bool sandbox;
+
+  /// Diisi setelah pembayaran berhasil.
+  int coinsEarned;
+  Tier? levelUp;
+
   Payment({
     required this.id,
     required this.trx,
@@ -73,9 +202,13 @@ class Payment {
     required this.amount,
     required this.status,
     required this.expiresAt,
+    this.coinsUsed = 0,
+    this.coinDiscount = 0,
     this.qrString,
     this.balance,
     this.sandbox = true,
+    this.coinsEarned = 0,
+    this.levelUp,
   });
 
   bool get paid => status == 'paid';
@@ -89,9 +222,12 @@ class Payment {
         amount: _i(j['amount']),
         status: j['status'] as String,
         expiresAt: _dt(j['expires_at']),
+        coinsUsed: _i(j['coins_used'] ?? 0),
+        coinDiscount: _i(j['coin_discount'] ?? 0),
         qrString: j['qr_string'] as String?,
         balance: j['balance'] == null ? null : _i(j['balance']),
         sandbox: (j['sandbox'] ?? true) as bool,
+        coinsEarned: _i(j['coins_earned'] ?? 0),
       );
 }
 
@@ -104,6 +240,8 @@ class Voucher {
   final int minTransaction;
   final DateTime validUntil;
   final List<String> terms;
+  final int minTier; // indeks Tier minimal (0 = untuk semua)
+  final bool locked; // level membership pengguna belum cukup
   bool claimed, used;
 
   Voucher({
@@ -116,13 +254,17 @@ class Voucher {
     required this.minTransaction,
     required this.validUntil,
     required this.terms,
+    this.minTier = 0,
+    this.locked = false,
     this.claimed = false,
     this.used = false,
   });
 
   bool get expired => DateTime.now().isAfter(validUntil.add(const Duration(days: 1)));
   bool get usable => claimed && !used && !expired;
+  bool get claimable => !claimed && !expired && !locked;
   bool eligible(int price) => price >= minTransaction;
+  String get tierLabel => Tier.values[minTier].label;
 
   int discountFor(int price) {
     if (!eligible(price)) return 0;
@@ -146,6 +288,8 @@ class Voucher {
         minTransaction: _i(j['min_transaction'] ?? 0),
         validUntil: _dt(j['valid_until']),
         terms: [for (final t in (j['terms'] as List? ?? [])) t as String],
+        minTier: _i(j['min_tier'] ?? 0),
+        locked: (j['locked'] ?? false) as bool,
         claimed: (j['claimed'] ?? false) as bool,
         used: (j['used'] ?? false) as bool,
       );
@@ -172,10 +316,12 @@ class Booking {
   final WashPackage pack;
   final DateTime slot;
   DateTime estFinish;
-  final int price; // harga sebelum voucher
-  int discount;
+  final int price; // harga jasa + produk, sebelum voucher dan Coins
+  int discount; // potongan voucher
   String? voucherCode;
-  int status; // index pada statusLabels
+  final List<OrderLine> items; // produk (oli, makanan, minuman)
+  int coinsUsed, coinDiscount, coinsEarned;
+  int status; // index pada pack.statusNames
   bool verified; // sudah discan/diverifikasi petugas saat tiba
   bool cancelled;
   String payStatus; // unpaid | paid | refunded
@@ -196,6 +342,10 @@ class Booking {
     required this.price,
     this.discount = 0,
     this.voucherCode,
+    this.items = const [],
+    this.coinsUsed = 0,
+    this.coinDiscount = 0,
+    this.coinsEarned = 0,
     this.status = 0,
     this.verified = false,
     this.cancelled = false,
@@ -206,10 +356,28 @@ class Booking {
     this.queuePosition = 0,
   });
 
-  int get total => price - discount;
+  int get total => price - discount - coinDiscount;
+  int get itemCount => items.fold(0, (s, l) => s + l.qty);
+  int get itemsTotal => items.fold(0, (s, l) => s + l.subtotal);
+  int get servicePrice => price - itemsTotal;
   bool get paid => payStatus == 'paid';
   bool get active => !cancelled && status < 3;
   bool get cancellable => !cancelled && status == 0 && !verified;
+  String get statusLabel => pack.statusNames[status];
+
+  /// Judul singkat untuk kartu/daftar.
+  String get label => pack.isShop ? 'Pesanan Toko • $itemCount item' : '${pack.name} • $plate';
+  String get subtitle => pack.isShop ? '$itemCount item' : '${pack.title} • ${vehicle.label}';
+
+  static List<OrderLine> _lines(dynamic raw) {
+    final out = <OrderLine>[];
+    for (final e in (raw as List? ?? const [])) {
+      final m = e as Map<String, dynamic>;
+      final p = productById(m['product_id'].toString());
+      if (p != null) out.add(OrderLine(p, _i(m['qty'])));
+    }
+    return out;
+  }
 
   factory Booking.fromJson(Map<String, dynamic> j) => Booking(
         id: j['id'].toString(),
@@ -223,6 +391,10 @@ class Booking {
         price: _i(j['price']),
         discount: _i(j['discount'] ?? 0),
         voucherCode: j['voucher_code'] as String?,
+        items: _lines(j['items']),
+        coinsUsed: _i(j['coins_used'] ?? 0),
+        coinDiscount: _i(j['coin_discount'] ?? 0),
+        coinsEarned: _i(j['coins_earned'] ?? 0),
         status: _i(j['status']),
         verified: (j['verified'] ?? false) as bool,
         cancelled: (j['cancelled'] ?? false) as bool,

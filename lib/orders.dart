@@ -6,18 +6,11 @@ import 'package:printing/printing.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import 'app_state.dart';
+import 'loyalty_models.dart';
 import 'models.dart';
 import 'payment.dart';
 import 'theme.dart';
 import 'widgets.dart';
-
-const _stageNames = ['Menunggu giliran', 'Sedang dicuci', 'Finishing', 'Siap diambil'];
-const _headlines = [
-  'Kendaraanmu menunggu giliran',
-  'Kendaraanmu sedang dicuci!',
-  'Hampir selesai, tahap finishing!',
-  'Cucian selesai, siap diambil!',
-];
 
 // ---------- RIWAYAT PESANAN (desain layar 16) ----------
 class OrdersScreen extends StatefulWidget {
@@ -99,7 +92,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                             StatusChip(b),
                           ]),
                           const SizedBox(height: 4),
-                          Text('${b.pack.name} Wash • ${b.vehicle.label}', style: const TextStyle(fontSize: 13)),
+                          Text(b.subtitle, style: const TextStyle(fontSize: 13)),
                           Text(fmtDateTime.format(b.slot), style: const TextStyle(fontSize: 12, color: kMuted)),
                           const SizedBox(height: 6),
                           Row(children: [
@@ -161,14 +154,16 @@ class _DetailScreenState extends State<DetailScreen> {
         pw.Divider(),
         pw.Text('Kode: ${b.code}'),
         pw.Text('Pemilik: ${b.owner}'),
-        pw.Text('Kendaraan: ${b.vehicle.label} (${b.plate})'),
-        pw.Text('Paket: ${b.pack.name}'),
-        pw.Text('Jadwal: ${fmtDateTime.format(b.slot)}'),
-        pw.Text('Estimasi selesai: ${fmtDateTime.format(b.estFinish)}'),
-        pw.Text('Status: ${b.cancelled ? 'Dibatalkan' : statusLabels[b.status]}'),
+        if (!b.pack.isShop) pw.Text('Kendaraan: ${b.vehicle.label} (${b.plate})'),
+        pw.Text('Layanan: ${b.pack.title}'),
+        pw.Text('${b.pack.isShop ? 'Waktu pesan' : 'Jadwal'}: ${fmtDateTime.format(b.slot)}'),
+        if (!b.pack.isShop) pw.Text('Estimasi selesai: ${fmtDateTime.format(b.estFinish)}'),
+        pw.Text('Status: ${b.cancelled ? 'Dibatalkan' : b.statusLabel}'),
         pw.SizedBox(height: 8),
+        for (final l in b.items) pw.Text('${l.product.name} x${l.qty}: ${rp(l.subtotal)}'),
         pw.Text('Subtotal: ${rp(b.price)}'),
         if (b.discount > 0) pw.Text('Voucher ${b.voucherCode}: - ${rp(b.discount)}'),
+        if (b.coinDiscount > 0) pw.Text('Tukar ${b.coinsUsed} Coins: - ${rp(b.coinDiscount)}'),
         pw.Text('Total: ${rp(b.total)}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
         pw.Text(b.paid ? 'Pembayaran: ${b.payMethod?.label ?? '-'} (${b.trx ?? '-'}) - Lunas' : 'Pembayaran: Belum dibayar'),
         pw.SizedBox(height: 12),
@@ -224,7 +219,7 @@ class _DetailScreenState extends State<DetailScreen> {
             ]),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(_stageNames[i],
+              child: Text(b.pack.stageNames[i],
                   style: TextStyle(fontWeight: i == b.status ? FontWeight.w800 : FontWeight.w600, color: i <= b.status ? kNavy : kMuted)),
             ),
             Text('${i > b.status ? '~' : ''}${fmtHm.format(_stageTime(b, i))}',
@@ -238,7 +233,7 @@ class _DetailScreenState extends State<DetailScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Batalkan pesanan?'),
         content: Text(b.paid
-            ? 'Pembayaran akan dikembalikan dan voucher (jika ada) bisa dipakai lagi.'
+            ? 'Pembayaran dan Coins yang dipakai akan dikembalikan, Coins yang didapat dari pesanan ini ditarik, dan voucher (jika ada) bisa dipakai lagi.'
             : 'Slot akan dilepas dan voucher (jika ada) bisa dipakai lagi.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Tidak')),
@@ -313,7 +308,7 @@ class _DetailScreenState extends State<DetailScreen> {
                       child: Column(children: [
                         _stepper(stage),
                         const SizedBox(height: 20),
-                        Text(_headlines[b.status], textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+                        Text(b.pack.headlines[b.status], textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
                         const SizedBox(height: 4),
                         Text.rich(TextSpan(children: [
                           const TextSpan(text: 'Estimasi selesai: ', style: TextStyle(color: kMuted)),
@@ -338,7 +333,12 @@ class _DetailScreenState extends State<DetailScreen> {
                                 backgroundColor: const Color(0x140B1F44),
                               ),
                             ),
-                            Padding(padding: const EdgeInsets.all(28), child: Image.asset(b.pack.imageFor(b.vehicle), fit: BoxFit.contain, color: null)),
+                            Padding(
+                              padding: const EdgeInsets.all(28),
+                              child: b.pack.isShop
+                                  ? const Icon(Icons.shopping_bag_rounded, size: 56, color: kNavy)
+                                  : Image.asset(b.pack.imageFor(b.vehicle), fit: BoxFit.contain, cacheWidth: 400),
+                            ),
                           ]),
                         ),
                         const SizedBox(height: 14),
@@ -348,7 +348,7 @@ class _DetailScreenState extends State<DetailScreen> {
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
                             Container(width: 9, height: 9, decoration: const BoxDecoration(color: kRed, shape: BoxShape.circle)),
                             const SizedBox(width: 8),
-                            Text(statusLabels[b.status], style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                            Text(b.statusLabel, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
                           ]),
                         ),
                         const SizedBox(height: 22),
@@ -370,7 +370,8 @@ class _DetailScreenState extends State<DetailScreen> {
                       ),
                       const SizedBox(height: 10),
                       SelectableText(b.code, style: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1)),
-                      const Text('Tunjukkan QR ini ke petugas saat tiba', style: TextStyle(fontSize: 12.5, color: kMuted)),
+                      Text(b.pack.isShop ? 'Tunjukkan QR ini ke kasir untuk mengambil pesanan' : 'Tunjukkan QR ini ke petugas saat tiba',
+                          style: const TextStyle(fontSize: 12.5, color: kMuted)),
                       const SizedBox(height: 10),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -389,13 +390,22 @@ class _DetailScreenState extends State<DetailScreen> {
                       ),
                       const Divider(height: 28),
                       kv('No. Pesanan', '#${b.id}'),
-                      kv('Kendaraan', '${b.vehicle.label} • ${b.plate}'),
-                      kv('Paket', '${b.pack.name} Wash'),
-                      kv('Jadwal', fmtDateTime.format(b.slot)),
+                      if (!b.pack.isShop) kv('Kendaraan', '${b.vehicle.label} • ${b.plate}'),
+                      kv(b.pack.isShop ? 'Jenis' : (b.pack.isOil ? 'Layanan' : 'Paket'), b.pack.title),
+                      kv(b.pack.isShop ? 'Waktu Pesan' : 'Jadwal', fmtDateTime.format(b.slot)),
+                      if (b.pack.isOil && b.items.isEmpty) kv('Oli', 'Dibawa sendiri'),
+                      if (b.items.isNotEmpty) ...[
+                        const Divider(height: 18),
+                        if (!b.pack.isShop) kv(b.pack.title, rp(b.servicePrice)),
+                        for (final l in b.items) kv('${l.product.name} ×${l.qty}', rp(l.subtotal)),
+                        const Divider(height: 18),
+                      ],
                       kv('Subtotal', rp(b.price)),
                       if (b.discount > 0) kv('Voucher ${b.voucherCode ?? ''}', '- ${rp(b.discount)}', valueColor: kGreen),
+                      if (b.coinDiscount > 0) kv('Tukar ${b.coinsUsed} Coins', '- ${rp(b.coinDiscount)}', valueColor: kGreen),
                       kv('Total', rp(b.total), bold: true),
                       kv('Pembayaran', b.paid ? '${b.payMethod?.label ?? '-'} • ${b.trx ?? ''}' : (b.payStatus == 'refunded' ? 'Dikembalikan' : 'Belum dibayar')),
+                      if (b.paid && b.coinsEarned > 0) kv('Coins didapat', '+${b.coinsEarned} Coins', valueColor: const Color(0xFFD08A00)),
                     ]),
                   ),
                   if (b.status == 3 && !b.cancelled) ...[
@@ -463,14 +473,11 @@ class _ReviewScreenState extends State<ReviewScreen> {
 
   Future<void> _send() async {
     setState(() => _busy = true);
-    final ok = await guard(context, () async {
-      await app.review(widget.bookingId, _rating, _text.text.trim());
-      return true;
-    });
+    final gained = await guard(context, () => app.review(widget.bookingId, _rating, _text.text.trim()));
     if (!mounted) return;
     setState(() => _busy = false);
-    if (ok == true) {
-      toast(context, 'Terima kasih atas ulasanmu!');
+    if (gained != null) {
+      toast(context, gained > 0 ? 'Terima kasih! Kamu dapat +$gained Coins' : 'Terima kasih atas ulasanmu!');
       Navigator.pop(context);
     }
   }
@@ -513,6 +520,13 @@ class _ReviewScreenState extends State<ReviewScreen> {
                 maxLength: 200,
                 decoration: const InputDecoration(hintText: 'Ceritakan pengalamanmu...'),
               ),
+              const SizedBox(height: 4),
+              Row(children: [
+                const Icon(Icons.monetization_on_rounded, size: 16, color: kGold),
+                const SizedBox(width: 6),
+                Text('Dapat +$kReviewCoins Coins, +$kReviewCommentBonus bonus bila menulis ulasan',
+                    style: const TextStyle(color: kMuted, fontSize: 12.5)),
+              ]),
               const SizedBox(height: 14),
               RedButton('Kirim Ulasan', busy: _busy, onPressed: _send),
               const SizedBox(height: 6),
@@ -554,7 +568,7 @@ class MyReviewsScreen extends StatelessWidget {
                         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DetailScreen(id: b.id))),
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Text(b.code, style: const TextStyle(fontWeight: FontWeight.w800)),
-                          Text('${b.pack.name} Wash', style: const TextStyle(fontSize: 13)),
+                          Text(b.pack.title, style: const TextStyle(fontSize: 13)),
                           Text(fmtDate.format(b.slot), style: const TextStyle(fontSize: 12, color: kMuted)),
                           const SizedBox(height: 8),
                           Row(children: [

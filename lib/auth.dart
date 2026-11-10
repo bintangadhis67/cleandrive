@@ -19,7 +19,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   static const _pages = [
     ('Cuci Kendaraan\nJadi Lebih Mudah', 'Pesan, lacak antrean, dan nikmati layanan terbaik.', 'assets/images/onboard_1.png'),
     ('Booking Tanpa Antre', 'Pilih paket, tanggal, dan jam kedatangan sesuai waktumu.', 'assets/images/onboard_2.png'),
-    ('Hemat dengan Voucher', 'Klaim voucher dan bayar lewat QRIS, GoPay, OVO, DANA, atau ShopeePay.', 'assets/images/onboard_3.png'),
+    ('Hemat dengan Voucher', "Klaim voucher, kumpulkan Coins, dan bayar lewat QRIS, e-wallet, atau Livin' by Mandiri.", 'assets/images/onboard_3.png'),
     ('Beri Rating & Ulasan', 'Ceritakan pengalamanmu agar layanan kami makin baik.', 'assets/images/onboard_4.png'),
   ];
 
@@ -129,12 +129,6 @@ class _AuthScreenState extends State<AuthScreen> {
     if (mounted) setState(() => _busy = false);
   }
 
-  void _demo(String email, String pass) => setState(() {
-        _register = false;
-        _email.text = email;
-        _pass.text = pass;
-      });
-
   Widget _label(String t) => Padding(
         padding: const EdgeInsets.only(bottom: 6, top: 14),
         child: Text(t, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
@@ -234,24 +228,6 @@ class _AuthScreenState extends State<AuthScreen> {
                         ])),
                       ),
                     ),
-                    if (!_register) ...[
-                      const SizedBox(height: 4),
-                      const Center(child: Text('Akun demo (ketuk untuk isi otomatis)', style: TextStyle(color: kMuted, fontSize: 12))),
-                      const SizedBox(height: 8),
-                      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        ActionChip(
-                          avatar: const Icon(Icons.person_outline, size: 16),
-                          label: const Text('Konsumen'),
-                          onPressed: () => _demo('budi@mail.com', '123456'),
-                        ),
-                        const SizedBox(width: 10),
-                        ActionChip(
-                          avatar: const Icon(Icons.admin_panel_settings_outlined, size: 16),
-                          label: const Text('Admin'),
-                          onPressed: () => _demo('admin@cleandrive.com', 'admin123'),
-                        ),
-                      ]),
-                    ],
                   ]),
                 ),
               ),
