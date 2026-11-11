@@ -1,5 +1,6 @@
 import 'package:intl/intl.dart';
 
+import '../catalog.dart';
 import '../loyalty_models.dart';
 import '../models.dart';
 import '../notification_models.dart';
@@ -79,6 +80,7 @@ class MockRepository implements Repository {
   final Map<String, _Wallet> _wallets = {}; // email -> dompet Coins
   final Map<String, List<AppNotification>> _notifs = {}; // email -> notifikasi
   final Set<String> _reminded = {}; // bookingId yang sudah dikirimi pengingat
+  final Map<String, int> _stock = {for (final p in products) p.id: p.stock}; // stok produk toko
   int _bookingSeq = 0, _paySeq = 0, _coinSeq = 0, _notifSeq = 0;
 
   MockRepository() {
@@ -377,6 +379,12 @@ class MockRepository implements Repository {
       throw ApiException('Produk hanya bisa dibeli lewat Toko atau jasa ganti oli.');
     }
 
+    for (final l in items) {
+      final left = _stock[l.product.id] ?? 0;
+      if (left <= 0) throw ApiException('${l.product.name} sudah habis.');
+      if (l.qty > left) throw ApiException('Stok ${l.product.name} tinggal $left.');
+    }
+
     final price = pack.priceFor(vehicle) + items.fold<int>(0, (s, l) => s + l.subtotal);
     var discount = 0;
     String? code;
@@ -400,8 +408,10 @@ class MockRepository implements Repository {
     _notify(
       _u.email,
       NotifType.order,
-      'Pesanan dibuat',
-      '${b.code} • ${pack.title}. Selesaikan pembayaran agar pesanan diproses.',
+      pack.isShop ? 'Pembelian dibuat' : 'Pesanan dibuat',
+      pack.isShop
+          ? '${b.code} • ${b.itemCount} item. Selesaikan pembayaran untuk menyelesaikan pembelian.'
+          : '${b.code} • ${pack.title}. Selesaikan pembayaran agar pesanan diproses.',
       target: 'order:${b.id}',
       push: false,
     );
@@ -418,6 +428,9 @@ class MockRepository implements Repository {
     final email = _owner[b.id]!;
     b.cancelled = true;
     if (wasPaid) {
+      for (final l in b.items) {
+        _stock[l.product.id] = (_stock[l.product.id] ?? 0) + l.qty; // stok dikembalikan
+      }
       b.payStatus = 'refunded';
       final w = _walletOf(email);
       if (b.coinsUsed > 0) {
@@ -460,6 +473,12 @@ class MockRepository implements Repository {
         wasPaid ? '${b.code} dibatalkan. Pembayaran dan Coins yang dipakai dikembalikan.' : '${b.code} dibatalkan.',
         target: 'order:${b.id}', push: false);
     return _decorate(b);
+  }
+
+  @override
+  Future<Map<String, int>> stocks() async {
+    await _lag(80);
+    return Map<String, int>.of(_stock);
   }
 
   // ---------- voucher ----------
@@ -530,8 +549,25 @@ class MockRepository implements Repository {
     if (p.coinsUsed > _walletOf(email).balance) {
       throw ApiException('Coins kamu tidak mencukupi lagi. Ulangi pembayaran tanpa Coins.');
     }
+    for (final l in b.items) {
+      final left = _stock[l.product.id] ?? 0;
+      if (l.qty > left) {
+        throw ApiException(left <= 0
+            ? 'Maaf, ${l.product.name} baru saja habis.'
+            : 'Maaf, stok ${l.product.name} tinggal $left.');
+      }
+    }
+    for (final l in b.items) {
+      _stock[l.product.id] = (_stock[l.product.id] ?? 0) - l.qty; // stok berkurang saat dibayar
+    }
     p.status = 'paid';
     b.payStatus = 'paid';
+    if (b.pack.isShop) {
+      // Beli langsung: begitu dibayar, pembelian selesai (tanpa antrean/proses).
+      b.status = 3;
+      b.verified = true;
+      b.estFinish = DateTime.now();
+    }
     b.payMethod = p.method;
     b.trx = p.trx;
     if (p.coinsUsed > 0) {
@@ -545,7 +581,7 @@ class MockRepository implements Repository {
     b.coinsEarned = r.$1;
     p.coinsEarned = r.$1;
     p.levelUp = r.$2;
-    _notify(email, NotifType.payment, 'Pembayaran berhasil',
+    _notify(email, NotifType.payment, b.pack.isShop ? 'Pembelian berhasil' : 'Pembayaran berhasil',
         '${b.code} • ${rp(b.total)} via ${p.method.label}. Kamu dapat +${r.$1} Coins.',
         target: 'order:${b.id}', push: false);
   }

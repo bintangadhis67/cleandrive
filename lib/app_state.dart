@@ -31,6 +31,9 @@ class AppState extends ChangeNotifier {
   // Keranjang Toko
   List<OrderLine> cart = [];
 
+  /// Stok produk toko (id produk -> sisa). Diisi dari repository.
+  Map<String, int> stock = {};
+
   /// Dipakai layar lain untuk meminta HomeScreen pindah tab.
   int? requestedTab;
   WashPackage? requestedPack;
@@ -60,9 +63,11 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> refreshAll() async {
-    final r = await Future.wait([repo.bookings(), repo.ratingSummary()]);
+    final r = await Future.wait([repo.bookings(), repo.ratingSummary(), repo.stocks()]);
     bookings = r[0] as List<Booking>;
     rating = r[1] as RatingSummary;
+    stock = r[2] as Map<String, int>;
+    _clampCart();
     if (!isAdmin) {
       vouchers = await repo.vouchers();
       loyalty = await repo.loyalty();
@@ -199,7 +204,29 @@ class AppState extends ChangeNotifier {
 
   int qtyOf(Product p) => cart.where((l) => l.product.id == p.id).firstOrNull?.qty ?? 0;
 
+  /// Sisa stok produk (bila belum dimuat, pakai stok awal dari katalog).
+  int stockOf(Product p) => stock[p.id] ?? p.stock;
+
+  /// Memuat ulang stok (dipanggil saat membuka Toko).
+  Future<void> refreshStock() async {
+    try {
+      stock = await repo.stocks();
+      _clampCart();
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  /// Jumlah di keranjang tidak boleh melebihi stok.
+  void _clampCart() {
+    cart = [
+      for (final l in cart)
+        if (stockOf(l.product) > 0) OrderLine(l.product, l.qty > stockOf(l.product) ? stockOf(l.product) : l.qty),
+    ];
+  }
+
   void setQty(Product p, int q) {
+    final max = stockOf(p);
+    if (q > max) q = max;
     final i = cart.indexWhere((l) => l.product.id == p.id);
     if (q <= 0) {
       if (i >= 0) cart.removeAt(i);

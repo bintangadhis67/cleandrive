@@ -50,7 +50,7 @@ class WashPackage {
       case ServiceKind.oil:
         return const ['Menunggu', 'Ganti Oli', 'Finishing', 'Selesai'];
       case ServiceKind.shop:
-        return const ['Menunggu', 'Disiapkan', 'Siap Diambil', 'Selesai'];
+        return const ['Belum Dibayar', 'Dibeli', 'Dibeli', 'Dibeli'];
     }
   }
 
@@ -61,7 +61,7 @@ class WashPackage {
       case ServiceKind.oil:
         return const ['Menunggu giliran', 'Oli sedang diganti', 'Finishing', 'Siap diambil'];
       case ServiceKind.shop:
-        return const ['Pesanan diterima', 'Sedang disiapkan', 'Siap diambil', 'Sudah diambil'];
+        return const ['Menunggu pembayaran', 'Pembayaran diterima', 'Pembelian berhasil', 'Pembelian berhasil'];
     }
   }
 
@@ -83,10 +83,10 @@ class WashPackage {
         ];
       case ServiceKind.shop:
         return const [
-          'Pesananmu sudah kami terima',
-          'Pesananmu sedang disiapkan!',
-          'Pesananmu siap diambil di kasir!',
-          'Pesanan sudah diambil, terima kasih!',
+          'Menunggu pembayaran',
+          'Pembelian berhasil!',
+          'Pembelian berhasil!',
+          'Pembelian berhasil, terima kasih!',
         ];
     }
   }
@@ -103,8 +103,8 @@ const oilChangePackage = WashPackage(
     'Ganti Oli', 'Jasa penggantian oli mesin + cek level cairan', 20000, 30,
     kind: ServiceKind.oil);
 
-/// Pesanan Toko (makanan, minuman, oli) tanpa jasa.
-const shopPackage = WashPackage('Belanja Toko', 'Pesanan Toko CleanDrive', 0, 5, kind: ServiceKind.shop);
+/// Pembelian langsung di Toko (makanan, minuman, oli) tanpa booking: bayar, lalu selesai.
+const shopPackage = WashPackage('Pembelian Toko', 'Pembelian langsung di Toko CleanDrive', 0, 5, kind: ServiceKind.shop);
 
 const allServices = [...packages, oilChangePackage, shopPackage];
 
@@ -135,11 +135,14 @@ class Product {
   final int price;
   final ProductCategory category;
 
+  /// Stok awal (data tiruan). Stok yang berjalan dikelola repository, baca lewat app.stockOf(produk).
+  final int stock;
+
   /// Khusus oli: jenis kendaraan yang cocok. Kosong = cocok untuk semua.
   final Set<VehicleType> vehicles;
 
   const Product(this.id, this.name, this.desc, this.price, this.category, this.image,
-      {this.vehicles = const {}});
+      {this.vehicles = const {}, this.stock = 20});
 
   bool fits(VehicleType v) => vehicles.isEmpty || vehicles.contains(v);
 
@@ -366,8 +369,8 @@ class Booking {
   String get statusLabel => pack.statusNames[status];
 
   /// Judul singkat untuk kartu/daftar.
-  String get label => pack.isShop ? 'Pesanan Toko • $itemCount item' : '${pack.name} • $plate';
-  String get subtitle => pack.isShop ? '$itemCount item' : '${pack.title} • ${vehicle.label}';
+  String get label => pack.isShop ? 'Pembelian Toko • $itemCount item' : '${pack.name} • $plate';
+  String get subtitle => pack.isShop ? 'Pembelian Toko • $itemCount item' : '${pack.title} • ${vehicle.label}';
 
   static List<OrderLine> _lines(dynamic raw) {
     final out = <OrderLine>[];

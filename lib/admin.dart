@@ -92,7 +92,7 @@ class _AdminQueueState extends State<AdminQueue> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text('${b.pack.name} • ${b.vehicle.label} ${b.plate}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                            Text(b.pack.isShop ? 'Pembelian Toko • ${b.itemCount} item' : '${b.pack.name} • ${b.vehicle.label} ${b.plate}', style: const TextStyle(fontWeight: FontWeight.w800)),
                             Text('Pemilik: ${b.owner}', style: const TextStyle(color: kMuted, fontSize: 13)),
                             Text(fmtDateTime.format(b.slot), style: const TextStyle(color: kMuted, fontSize: 13)),
                           ]),

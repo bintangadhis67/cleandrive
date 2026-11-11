@@ -79,6 +79,9 @@ abstract class Repository {
   });
   Future<Booking> cancelBooking(String id);
 
+  /// Stok tiap produk toko: id produk -> jumlah tersisa.
+  Future<Map<String, int>> stocks();
+
   Future<List<Voucher>> vouchers();
   Future<Voucher> claimVoucher(String id);
 

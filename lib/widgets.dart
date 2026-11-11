@@ -247,3 +247,63 @@ class ServiceThumb extends StatelessWidget {
     );
   }
 }
+
+// ---------- RESPONSIF (HP, tablet, laptop) ----------
+
+/// Lebar layar mulai dari ini dianggap laptop/desktop: menu samping + tata letak kolom ganda.
+const kWideBreakpoint = 900.0;
+
+/// Lebar maksimum isi halaman agar tetap nyaman dibaca di monitor sangat lebar.
+const kPageMax = 1400.0;
+
+bool isWide(BuildContext c) => MediaQuery.of(c).size.width >= kWideBreakpoint;
+
+/// Jumlah kolom menurut lebar yang tersedia (minimal 1, maksimal 4).
+int colsFor(double width, {double minWidth = 340}) {
+  final n = (width / minWidth).floor();
+  return n < 1 ? 1 : (n > 4 ? 4 : n);
+}
+
+/// Memusatkan isi dengan lebar maksimum, menempel di atas.
+class PageBox extends StatelessWidget {
+  final Widget child;
+  final double maxWidth;
+  const PageBox({super.key, required this.child, this.maxWidth = kPageMax});
+
+  @override
+  Widget build(BuildContext context) => Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(constraints: BoxConstraints(maxWidth: maxWidth), child: child),
+      );
+}
+
+/// Menyusun widget dalam beberapa kolom (tinggi tiap baris mengikuti isinya).
+/// Dengan [cols] = 1 hasilnya sama seperti daftar biasa.
+class ColumnsGrid extends StatelessWidget {
+  final List<Widget> children;
+  final int cols;
+  final double gap;
+  const ColumnsGrid({super.key, required this.children, required this.cols, this.gap = 14});
+
+  @override
+  Widget build(BuildContext context) {
+    if (cols <= 1) {
+      return Column(children: [
+        for (final c in children) Padding(padding: EdgeInsets.only(bottom: gap), child: c),
+      ]);
+    }
+    final rows = <Widget>[];
+    for (var i = 0; i < children.length; i += cols) {
+      rows.add(Padding(
+        padding: EdgeInsets.only(bottom: gap),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          for (var j = 0; j < cols; j++) ...[
+            if (j > 0) SizedBox(width: gap),
+            Expanded(child: i + j < children.length ? children[i + j] : const SizedBox.shrink()),
+          ],
+        ]),
+      ));
+    }
+    return Column(children: rows);
+  }
+}

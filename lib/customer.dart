@@ -139,50 +139,48 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        body: SafeArea(
-          bottom: false,
-          child: Center(
-            child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 640), child: _body()),
-          ),
-        ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () => _go(2),
-          backgroundColor: kRed,
-          foregroundColor: Colors.white,
-          elevation: 4,
-          shape: const CircleBorder(),
-          child: const Icon(Icons.add_rounded, size: 32),
-        ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-        bottomNavigationBar: BottomAppBar(
-          color: Colors.white,
-          surfaceTintColor: Colors.transparent,
-          shape: const CircularNotchedRectangle(),
-          notchMargin: 6,
-          padding: EdgeInsets.zero,
-          height: 66,
-          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            _navItem(0, Icons.home_rounded, 'Beranda'),
-            _navItem(1, Icons.receipt_long_rounded, 'Pesanan'),
-            Expanded(
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text('Booking',
-                      style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: _idx == 2 ? FontWeight.w800 : FontWeight.w600,
-                          color: _idx == 2 ? kRed : kMuted)),
-                ),
+  Widget build(BuildContext context) {
+    // Tampilan satu kolom di tengah dengan menu bawah (HP dan laptop sama).
+    return Scaffold(
+      body: SafeArea(bottom: false, child: PageBox(maxWidth: 640, child: _body())),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _go(2),
+        backgroundColor: kRed,
+        foregroundColor: Colors.white,
+        elevation: 4,
+        shape: const CircleBorder(),
+        child: const Icon(Icons.add_rounded, size: 32),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: BottomAppBar(
+        color: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 6,
+        padding: EdgeInsets.zero,
+        height: 66,
+        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          _navItem(0, Icons.home_rounded, 'Beranda'),
+          _navItem(1, Icons.history_rounded, 'Riwayat'),
+          Expanded(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text('Booking',
+                    style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: _idx == 2 ? FontWeight.w800 : FontWeight.w600,
+                        color: _idx == 2 ? kRed : kMuted)),
               ),
             ),
-            _navItem(3, Icons.local_car_wash_rounded, 'Layanan'),
-            _navItem(4, Icons.person_rounded, 'Akun'),
-          ]),
-        ),
-      );
+          ),
+          _navItem(3, Icons.local_car_wash_rounded, 'Layanan'),
+          _navItem(4, Icons.person_rounded, 'Akun'),
+        ]),
+      ),
+    );
+  }
 }
 
 // ---------- BERANDA ----------
@@ -253,7 +251,98 @@ class BerandaTab extends StatelessWidget {
           final name = app.user ?? '';
           final first = name.split(' ').first;
           final active = app.bookings.where((b) => b.active).toList()..sort((a, b) => a.slot.compareTo(b.slot));
-          final toReview = app.bookings.where((b) => b.status == 3 && !b.cancelled && b.review == null).firstOrNull;
+          final toReview =
+              app.bookings.where((b) => b.status == 3 && !b.cancelled && !b.pack.isShop && b.review == null).firstOrNull;
+
+          final header = Padding(
+            padding: const EdgeInsets.only(top: 8, bottom: 16),
+            child: Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Halo, $first!',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
+                  const Text('Siap cuci kendaraanmu hari ini?', style: TextStyle(color: kMuted)),
+                ]),
+              ),
+              const NotifBell(),
+              const SizedBox(width: 10),
+              GestureDetector(
+                onTap: () => onGo(4),
+                child: CircleAvatar(
+                  radius: 22,
+                  backgroundColor: kNavy,
+                  child: Text(name.isEmpty ? '?' : name[0].toUpperCase(),
+                      style: const TextStyle(color: kCream, fontWeight: FontWeight.w800, fontSize: 18)),
+                ),
+              ),
+            ]),
+          );
+
+          // Kolom kiri: hero, member, voucher.
+          final left = <Widget>[
+            _hero(),
+            const SizedBox(height: 16),
+            const MemberHomeCard(),
+            const SizedBox(height: 16),
+            const VoucherHomeCard(),
+          ];
+
+          // Kolom kanan: akses cepat, ulasan, pesanan aktif, toko.
+          final right = <Widget>[
+            Panel(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Akses Cepat', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                const SizedBox(height: 10),
+                Row(children: [
+                  _quick(Icons.event_available, 'Booking', () => onGo(2)),
+                  _quick(Icons.history_rounded, 'Riwayat', () => onGo(1)),
+                  _quick(Icons.local_car_wash, 'Layanan', () => onGo(3)),
+                  _quick(Icons.local_offer_outlined, 'Voucher', () => _push(context, const MyVouchersScreen())),
+                ]),
+                const SizedBox(height: 6),
+                Row(children: [
+                  _quick(Icons.storefront_rounded, 'Toko', () => _push(context, const ShopScreen())),
+                  _quick(Icons.opacity_rounded, 'Ganti Oli', () => onGo(2, pack: oilChangePackage)),
+                  _quick(Icons.workspace_premium_rounded, 'Member', () => _push(context, const LoyaltyScreen())),
+                  _quick(Icons.star_outline_rounded, 'Ulasan', () => _push(context, const MyReviewsScreen())),
+                ]),
+              ]),
+            ),
+            if (toReview != null) ...[
+              const SizedBox(height: 16),
+              Panel(
+                onTap: () => _push(context, ReviewScreen(bookingId: toReview.id)),
+                child: Row(children: [
+                  const Icon(Icons.star_rounded, color: kGold, size: 34),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('Bagaimana hasil layanannya?', style: TextStyle(fontWeight: FontWeight.w800)),
+                      Text('${toReview.label}. Beri ulasan dan dapat +$kReviewCoins Coins.',
+                          style: const TextStyle(fontSize: 12.5, color: kMuted)),
+                    ]),
+                  ),
+                  const Icon(Icons.chevron_right, color: kMuted),
+                ]),
+              ),
+            ],
+            sec('Pesanan aktif', trailing: TextButton(onPressed: () => onGo(1), child: const Text('Lihat Semua'))),
+            if (active.isEmpty)
+              Panel(
+                child: Row(children: [
+                  const Icon(Icons.local_car_wash_outlined, size: 32, color: kMuted),
+                  const SizedBox(width: 12),
+                  const Expanded(child: Text('Belum ada pesanan aktif.', style: TextStyle(color: kMuted))),
+                  TextButton(onPressed: () => onGo(2), child: const Text('Booking')),
+                ]),
+              )
+            else
+              _ActiveCard(active.first),
+            const ShopHomeSection(),
+          ];
+
           return RefreshIndicator(
             color: kRed,
             onRefresh: () async {
@@ -261,89 +350,23 @@ class BerandaTab extends StatelessWidget {
                 await app.refreshAll();
               } catch (_) {}
             },
-            child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 8, bottom: 16),
-                child: Row(children: [
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('Halo, $first!',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
-                      const Text('Siap cuci kendaraanmu hari ini?', style: TextStyle(color: kMuted)),
-                    ]),
-                  ),
-                  const NotifBell(),
-                  const SizedBox(width: 10),
-                  GestureDetector(
-                    onTap: () => onGo(4),
-                    child: CircleAvatar(
-                      radius: 22,
-                      backgroundColor: kNavy,
-                      child: Text(name.isEmpty ? '?' : name[0].toUpperCase(),
-                          style: const TextStyle(color: kCream, fontWeight: FontWeight.w800, fontSize: 18)),
-                    ),
-                  ),
-                ]),
-              ),
-              _hero(),
-              const SizedBox(height: 16),
-              const MemberHomeCard(),
-              const SizedBox(height: 16),
-              const VoucherHomeCard(),
-              const SizedBox(height: 16),
-              Panel(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('Akses Cepat', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-                  const SizedBox(height: 10),
-                  Row(children: [
-                    _quick(Icons.event_available, 'Booking', () => onGo(2)),
-                    _quick(Icons.receipt_long, 'Pesanan', () => onGo(1)),
-                    _quick(Icons.local_car_wash, 'Layanan', () => onGo(3)),
-                    _quick(Icons.local_offer_outlined, 'Voucher', () => _push(context, const MyVouchersScreen())),
-                  ]),
-                  const SizedBox(height: 6),
-                  Row(children: [
-                    _quick(Icons.storefront_rounded, 'Toko', () => _push(context, const ShopScreen())),
-                    _quick(Icons.opacity_rounded, 'Ganti Oli', () => onGo(2, pack: oilChangePackage)),
-                    _quick(Icons.workspace_premium_rounded, 'Member', () => _push(context, const LoyaltyScreen())),
-                    _quick(Icons.star_outline_rounded, 'Ulasan', () => _push(context, const MyReviewsScreen())),
-                  ]),
-                ]),
-              ),
-              if (toReview != null) ...[
-                const SizedBox(height: 16),
-                Panel(
-                  onTap: () => _push(context, ReviewScreen(bookingId: toReview.id)),
-                  child: Row(children: [
-                    const Icon(Icons.star_rounded, color: kGold, size: 34),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        const Text('Bagaimana hasil layanannya?', style: TextStyle(fontWeight: FontWeight.w800)),
-                        Text('${toReview.label}. Beri ulasan dan dapat +$kReviewCoins Coins.',
-                            style: const TextStyle(fontSize: 12.5, color: kMuted)),
-                      ]),
-                    ),
-                    const Icon(Icons.chevron_right, color: kMuted),
-                  ]),
-                ),
-              ],
-              sec('Pesanan aktif', trailing: TextButton(onPressed: () => onGo(1), child: const Text('Lihat Semua'))),
-              if (active.isEmpty)
-                Panel(
-                  child: Row(children: [
-                    const Icon(Icons.local_car_wash_outlined, size: 32, color: kMuted),
-                    const SizedBox(width: 12),
-                    const Expanded(child: Text('Belum ada pesanan aktif.', style: TextStyle(color: kMuted))),
-                    TextButton(onPressed: () => onGo(2), child: const Text('Booking')),
-                  ]),
-                )
-              else
-                _ActiveCard(active.first),
-              const ShopHomeSection(),
-            ]),
+            child: LayoutBuilder(builder: (context, cons) {
+              final two = cons.maxWidth >= 900; // laptop: dua kolom
+              return ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: [
+                header,
+                if (two)
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(flex: 5, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: left)),
+                    const SizedBox(width: 20),
+                    Expanded(flex: 6, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: right)),
+                  ])
+                else ...[
+                  ...left,
+                  const SizedBox(height: 16),
+                  ...right,
+                ],
+              ]);
+            }),
           );
         },
       );
@@ -380,7 +403,7 @@ class _ActiveCard extends StatelessWidget {
           Row(children: [
             const Icon(Icons.timer_outlined, size: 16, color: kMuted),
             const SizedBox(width: 6),
-            Text(b.pack.isShop ? 'Pesanan toko' : 'Estimasi selesai ${fmtHm.format(b.estFinish)}', style: const TextStyle(fontSize: 12.5, color: kMuted)),
+            Text(b.pack.isShop ? 'Menunggu pembayaran' : 'Estimasi selesai ${fmtHm.format(b.estFinish)}', style: const TextStyle(fontSize: 12.5, color: kMuted)),
             const Spacer(),
             PayChip(b),
           ]),
@@ -422,7 +445,6 @@ class _LayananTabState extends State<LayananTab> {
   Widget _serviceCard(WashPackage p) {
     final popular = p.name == 'Reguler';
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
       child: NavyCard(
         child: Stack(children: [
           Padding(
@@ -478,7 +500,6 @@ class _LayananTabState extends State<LayananTab> {
   Widget _oilCard() {
     const p = oilChangePackage;
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
       child: NavyCard(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(18, 18, 14, 16),
@@ -530,38 +551,44 @@ class _LayananTabState extends State<LayananTab> {
   @override
   Widget build(BuildContext context) => ListenableBuilder(
         listenable: app,
-        builder: (context, _) => ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: [
-          pageHeader('Layanan Kami', 'Pilih kendaraan, lihat harga tiap layanan.'),
-          if (app.rating.count > 0)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 14),
-              child: Row(children: [
-                StarRow(app.rating.avg, size: 18),
-                const SizedBox(width: 8),
-                Text('${app.rating.avg.toStringAsFixed(1)} dari ${app.rating.count} ulasan',
-                    style: const TextStyle(color: kMuted, fontWeight: FontWeight.w600, fontSize: 13)),
-              ]),
-            ),
-          Row(children: [for (final v in VehicleType.values) _pill(v)]),
-          const SizedBox(height: 16),
-          for (final p in packages) _serviceCard(p),
-          sec('Layanan tambahan', top: 8),
-          _oilCard(),
-          Panel(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ShopScreen())),
-            child: const Row(children: [
-              Icon(Icons.storefront_rounded, color: kNavy, size: 32),
-              SizedBox(width: 12),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Toko CleanDrive', style: TextStyle(fontWeight: FontWeight.w800)),
-                  Text('Camilan, minuman, dan oli untuk kendaraanmu.', style: TextStyle(color: kMuted, fontSize: 12.5)),
+        builder: (context, _) => LayoutBuilder(builder: (context, cons) {
+          final cols = colsFor(cons.maxWidth - 32, minWidth: 420);
+          return ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: [
+            pageHeader('Layanan Kami', 'Pilih kendaraan, lihat harga tiap layanan.'),
+            if (app.rating.count > 0)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: Row(children: [
+                  StarRow(app.rating.avg, size: 18),
+                  const SizedBox(width: 8),
+                  Text('${app.rating.avg.toStringAsFixed(1)} dari ${app.rating.count} ulasan',
+                      style: const TextStyle(color: kMuted, fontWeight: FontWeight.w600, fontSize: 13)),
                 ]),
               ),
-              Icon(Icons.chevron_right, color: kMuted),
+            Row(children: [for (final v in VehicleType.values) _pill(v)]),
+            const SizedBox(height: 16),
+            ColumnsGrid(cols: cols, children: [for (final p in packages) _serviceCard(p)]),
+            sec('Layanan tambahan', top: 8),
+            ColumnsGrid(cols: cols, children: [
+              _oilCard(),
+              Panel(
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ShopScreen())),
+                child: const Row(children: [
+                  Icon(Icons.storefront_rounded, color: kNavy, size: 32),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Toko CleanDrive', style: TextStyle(fontWeight: FontWeight.w800)),
+                      Text('Camilan, minuman, dan oli untuk kendaraanmu. Beli langsung tanpa booking.',
+                          style: TextStyle(color: kMuted, fontSize: 12.5)),
+                    ]),
+                  ),
+                  Icon(Icons.chevron_right, color: kMuted),
+                ]),
+              ),
             ]),
-          ),
-        ]),
+          ]);
+        }),
       );
 }
 
@@ -591,6 +618,7 @@ class _BookingScreenState extends State<BookingScreen> {
   @override
   void initState() {
     super.initState();
+    app.refreshStock();
     _loadCounts();
   }
 
@@ -735,13 +763,17 @@ class _BookingScreenState extends State<BookingScreen> {
 
   Widget _oilTile(Product o) {
     final sel = _oil?.id == o.id;
+    final left = app.stockOf(o);
+    final out = left <= 0;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: GestureDetector(
-        onTap: () => setState(() {
-          _oil = o;
-          _ownOil = false;
-        }),
+        onTap: out
+            ? null
+            : () => setState(() {
+                  _oil = o;
+                  _ownOil = false;
+                }),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.all(10),
@@ -756,13 +788,17 @@ class _BookingScreenState extends State<BookingScreen> {
               height: 66,
               decoration: BoxDecoration(color: const Color(0xFFEFF1F5), borderRadius: BorderRadius.circular(12)),
               padding: const EdgeInsets.all(4),
-              child: ProductImage(o),
+              child: Opacity(opacity: out ? .4 : 1, child: ProductImage(o)),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(o.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
                 Text(o.desc, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: kMuted)),
+                if (out)
+                  const Text('Stok habis', style: TextStyle(fontSize: 12, color: Color(0xFFB3261E), fontWeight: FontWeight.w800))
+                else if (left < kLowStock)
+                  Text('Sisa $left', style: const TextStyle(fontSize: 12, color: Color(0xFFD08A00), fontWeight: FontWeight.w800)),
               ]),
             ),
             const SizedBox(width: 8),
@@ -883,59 +919,83 @@ class _BookingScreenState extends State<BookingScreen> {
   Widget build(BuildContext context) {
     final slot = _hour == null ? null : _day.add(Duration(hours: _hour!));
     final oils = productsIn(ProductCategory.oli).where((o) => o.fits(_v)).toList();
-    return Column(children: [
-      Expanded(
-        child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 16), children: [
-          pageHeader(_isOil ? 'Ganti Oli' : 'Booking Cuci',
-              _isOil ? 'Pilih kendaraan, oli, dan jam kedatangan.' : 'Pilih kendaraan, paket, dan jam kedatangan.'),
-          Row(children: [
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 10),
-                child: _modeTile('Cuci', Icons.local_car_wash_rounded, !_isOil, () => _setOilMode(false)),
-              ),
-            ),
-            Expanded(child: _modeTile('Ganti Oli', Icons.opacity_rounded, _isOil, () => _setOilMode(true))),
-          ]),
-          const SizedBox(height: 18),
-          const Text('Jenis kendaraan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 10),
-          Row(children: [
-            for (final v in VehicleType.values)
-              Expanded(child: Padding(padding: EdgeInsets.only(right: v == VehicleType.suv ? 0 : 10), child: _vehicleTile(v))),
-          ]),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _plate,
-            textCapitalization: TextCapitalization.characters,
-            onChanged: (_) => setState(() {}),
-            decoration: const InputDecoration(
-              labelText: 'Plat nomor',
-              hintText: 'mis. L 1234 AB',
-              prefixIcon: Icon(Icons.confirmation_number_outlined),
-            ),
+
+    // Kolom kiri: jenis layanan, kendaraan, paket/oli. Kolom kanan: tanggal dan jam.
+    final left = <Widget>[
+      Row(children: [
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: _modeTile('Cuci', Icons.local_car_wash_rounded, !_isOil, () => _setOilMode(false)),
           ),
-          if (_isOil) ...[
-            sec('Pilih oli'),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Text('Jasa penggantian ${rp(_p.priceFor(_v))} untuk ${_v.label}. Harga oli ditambahkan sesuai pilihanmu.',
-                  style: const TextStyle(color: kMuted, fontSize: 12.5)),
-            ),
-            for (final o in oils) _oilTile(o),
-            _ownOilTile(),
-          ] else ...[
-            sec('Paket cuci'),
-            for (final p in packages) _packTile(p),
-          ],
-          sec('Tanggal', top: 12),
+        ),
+        Expanded(child: _modeTile('Ganti Oli', Icons.opacity_rounded, _isOil, () => _setOilMode(true))),
+      ]),
+      const SizedBox(height: 18),
+      const Text('Jenis kendaraan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+      const SizedBox(height: 10),
+      Row(children: [
+        for (final v in VehicleType.values)
+          Expanded(child: Padding(padding: EdgeInsets.only(right: v == VehicleType.suv ? 0 : 10), child: _vehicleTile(v))),
+      ]),
+      const SizedBox(height: 12),
+      TextField(
+        controller: _plate,
+        textCapitalization: TextCapitalization.characters,
+        onChanged: (_) => setState(() {}),
+        decoration: const InputDecoration(
+          labelText: 'Plat nomor',
+          hintText: 'mis. L 1234 AB',
+          prefixIcon: Icon(Icons.confirmation_number_outlined),
+        ),
+      ),
+      if (_isOil) ...[
+        sec('Pilih oli'),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Text('Jasa penggantian ${rp(_p.priceFor(_v))} untuk ${_v.label}. Harga oli ditambahkan sesuai pilihanmu.',
+              style: const TextStyle(color: kMuted, fontSize: 12.5)),
+        ),
+        ListenableBuilder(
+          listenable: app,
+          builder: (context, _) => Column(children: [for (final o in oils) _oilTile(o)]),
+        ),
+        _ownOilTile(),
+      ] else ...[
+        sec('Paket cuci'),
+        for (final p in packages) _packTile(p),
+      ],
+    ];
+
+    List<Widget> right(double top) => [
+          sec('Tanggal', top: top),
           Row(children: [for (var i = 0; i < 3; i++) _dayTile(i)]),
           sec('Jam kedatangan'),
           if (_loadingSlots)
             const Padding(padding: EdgeInsets.all(12), child: Center(child: CircularProgressIndicator(color: kRed)))
           else
             Wrap(spacing: 8, runSpacing: 8, children: [for (var h = 8; h <= 17; h++) _hourTile(h)]),
-        ]),
+        ];
+
+    return Column(children: [
+      Expanded(
+        child: LayoutBuilder(builder: (context, cons) {
+          final two = cons.maxWidth >= 900; // laptop: dua kolom
+          return ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 16), children: [
+            pageHeader(_isOil ? 'Ganti Oli' : 'Booking Cuci',
+                _isOil ? 'Pilih kendaraan, oli, dan jam kedatangan.' : 'Pilih kendaraan, paket, dan jam kedatangan.'),
+            if (two)
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(flex: 6, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: left)),
+                const SizedBox(width: 24),
+                Expanded(flex: 5, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: right(0))),
+              ])
+            else ...[
+              ...left,
+              ...right(12),
+            ],
+          ]);
+        }),
       ),
       _bottomBar(slot),
     ]);
@@ -1056,15 +1116,15 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
     final estCoins = withTierBonus(payBandFor(total).coins, app.tier);
     final pack = widget.pack;
     return Scaffold(
-      appBar: AppBar(title: const Text('Konfirmasi Pesanan')),
+      appBar: AppBar(title: Text(pack.isShop ? 'Konfirmasi Pembelian' : 'Konfirmasi Pesanan')),
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
+          constraints: const BoxConstraints(maxWidth: 560),
           child: ListView(padding: const EdgeInsets.all(16), children: [
             Panel(
               child: Column(children: [
                 if (pack.isShop) ...[
-                  kv('Jenis', 'Pesanan Toko'),
+                  kv('Jenis', 'Pembelian Langsung'),
                   kv('Jumlah', '${widget.items.fold(0, (s, l) => s + l.qty)} item'),
                   kv('Ambil di', 'Kasir CleanDrive'),
                 ] else ...[
@@ -1130,10 +1190,12 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
               ]),
             ),
             const SizedBox(height: 20),
-            RedButton('Konfirmasi Pesanan', busy: _busy, onPressed: _confirm),
+            RedButton(pack.isShop ? 'Lanjut ke Pembayaran' : 'Konfirmasi Pesanan', busy: _busy, onPressed: _confirm),
             const SizedBox(height: 14),
-            const Text(
-              'Setelah dikonfirmasi, kamu akan diarahkan ke pembayaran dan bisa menukar Coins jadi potongan harga. Pesanan baru aktif setelah dibayar.',
+            Text(
+              pack.isShop
+                  ? 'Pembelian langsung tanpa booking. Setelah bayar, pembelian selesai dan barang bisa diambil di kasir CleanDrive. Kamu juga bisa menukar Coins jadi potongan harga.'
+                  : 'Setelah dikonfirmasi, kamu akan diarahkan ke pembayaran dan bisa menukar Coins jadi potongan harga. Pesanan baru aktif setelah dibayar.',
               textAlign: TextAlign.center,
               style: TextStyle(color: kMuted, fontSize: 12.5, height: 1.4),
             ),
@@ -1246,7 +1308,9 @@ class AkunTab extends StatelessWidget {
         listenable: app,
         builder: (context, _) {
           final name = app.user ?? '';
-          return ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: [
+          return PageBox(
+            maxWidth: 720,
+            child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: [
             const SizedBox(height: 12),
             Center(
               child: Column(children: [
@@ -1268,7 +1332,7 @@ class AkunTab extends StatelessWidget {
             Panel(
               padding: EdgeInsets.zero,
               child: Column(children: [
-                _menu(Icons.receipt_long_outlined, 'Pesanan Saya', () => onGo(1)),
+                _menu(Icons.history_rounded, 'Riwayat Saya', () => onGo(1)),
                 const Divider(height: 1),
                 _menu(Icons.workspace_premium_outlined, 'Membership & Coins',
                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LoyaltyScreen()))),
@@ -1328,7 +1392,8 @@ class AkunTab extends StatelessWidget {
                 Text('Keluar', style: TextStyle(color: kRed, fontWeight: FontWeight.w800)),
               ]),
             ),
-          ]);
+            ]),
+          );
         },
       );
 }

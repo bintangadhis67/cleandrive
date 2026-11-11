@@ -43,6 +43,39 @@ class _OrdersScreenState extends State<OrdersScreen> {
     );
   }
 
+  Widget _card(BuildContext context, Booking b) => Panel(
+        padding: const EdgeInsets.all(14),
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DetailScreen(id: b.id))),
+        child: Row(children: [
+          ServiceThumb(b.pack, b.vehicle, width: 84),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Expanded(child: Text(b.code, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13), overflow: TextOverflow.ellipsis)),
+                StatusChip(b),
+              ]),
+              const SizedBox(height: 4),
+              Text(b.subtitle, style: const TextStyle(fontSize: 13)),
+              Text(fmtDateTime.format(b.slot), style: const TextStyle(fontSize: 12, color: kMuted)),
+              const SizedBox(height: 6),
+              Row(children: [
+                Text(rp(b.total), style: const TextStyle(fontWeight: FontWeight.w800)),
+                const Spacer(),
+                if (b.review != null) ...[
+                  const Icon(Icons.star_rounded, color: kGold, size: 18),
+                  const SizedBox(width: 2),
+                  Text('${b.review!.rating}.0', style: const TextStyle(fontWeight: FontWeight.w700)),
+                ] else if (b.status == 3 && !b.cancelled && !b.pack.isShop)
+                  const Text('Beri ulasan', style: TextStyle(color: kRed, fontWeight: FontWeight.w800, fontSize: 12.5))
+                else if (!b.cancelled && !b.paid)
+                  const Text('Belum dibayar', style: TextStyle(color: Color(0xFFD08A00), fontWeight: FontWeight.w800, fontSize: 12.5)),
+              ]),
+            ]),
+          ),
+        ]),
+      );
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
         listenable: app,
@@ -60,59 +93,31 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 await app.refreshAll();
               } catch (_) {}
             },
-            child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: [
-              pageHeader('Riwayat Pesanan', 'Semua pesanan cucimu ada di sini.'),
-              Row(children: [for (var i = 0; i < 3; i++) _pill(i)]),
-              const SizedBox(height: 16),
-              if (list.isEmpty)
-                const Panel(
-                  padding: EdgeInsets.symmetric(vertical: 36, horizontal: 16),
-                  child: Center(
-                    child: Column(children: [
-                      Icon(Icons.receipt_long_outlined, size: 48, color: kMuted),
-                      SizedBox(height: 10),
-                      Text('Belum ada pesanan', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                      Text('Pesanan yang kamu buat akan muncul di sini.', style: TextStyle(color: kMuted)),
-                    ]),
-                  ),
+            child: LayoutBuilder(builder: (context, cons) {
+              final cols = colsFor(cons.maxWidth - 32, minWidth: 460);
+              return ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: [
+                pageHeader('Riwayat', 'Semua pesanan cuci, ganti oli, dan pembelian tokomu ada di sini.'),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(children: [for (var i = 0; i < 3; i++) _pill(i)]),
                 ),
-              for (final b in list)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Panel(
-                    padding: const EdgeInsets.all(14),
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DetailScreen(id: b.id))),
-                    child: Row(children: [
-                      ServiceThumb(b.pack, b.vehicle, width: 84),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Row(children: [
-                            Expanded(child: Text(b.code, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13), overflow: TextOverflow.ellipsis)),
-                            StatusChip(b),
-                          ]),
-                          const SizedBox(height: 4),
-                          Text(b.subtitle, style: const TextStyle(fontSize: 13)),
-                          Text(fmtDateTime.format(b.slot), style: const TextStyle(fontSize: 12, color: kMuted)),
-                          const SizedBox(height: 6),
-                          Row(children: [
-                            Text(rp(b.total), style: const TextStyle(fontWeight: FontWeight.w800)),
-                            const Spacer(),
-                            if (b.review != null) ...[
-                              const Icon(Icons.star_rounded, color: kGold, size: 18),
-                              const SizedBox(width: 2),
-                              Text('${b.review!.rating}.0', style: const TextStyle(fontWeight: FontWeight.w700)),
-                            ] else if (b.status == 3 && !b.cancelled)
-                              const Text('Beri ulasan', style: TextStyle(color: kRed, fontWeight: FontWeight.w800, fontSize: 12.5))
-                            else if (!b.cancelled && !b.paid)
-                              const Text('Belum dibayar', style: TextStyle(color: Color(0xFFD08A00), fontWeight: FontWeight.w800, fontSize: 12.5)),
-                          ]),
-                        ]),
-                      ),
-                    ]),
+                const SizedBox(height: 16),
+                if (list.isEmpty)
+                  const Panel(
+                    padding: EdgeInsets.symmetric(vertical: 36, horizontal: 16),
+                    child: Center(
+                      child: Column(children: [
+                        Icon(Icons.history_rounded, size: 48, color: kMuted),
+                        SizedBox(height: 10),
+                        Text('Belum ada riwayat', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                        Text('Pesanan dan pembelian yang kamu buat akan muncul di sini.',
+                            textAlign: TextAlign.center, style: TextStyle(color: kMuted)),
+                      ]),
+                    ),
                   ),
-                ),
-            ]),
+                ColumnsGrid(cols: cols, gap: 12, children: [for (final b in list) _card(context, b)]),
+              ]);
+            }),
           );
         },
       );
@@ -260,14 +265,15 @@ class _DetailScreenState extends State<DetailScreen> {
           final b = app.byId(widget.id);
           if (b == null) return Scaffold(appBar: AppBar(), body: const Center(child: Text('Pesanan tidak ditemukan.')));
           final stage = b.status == 0 ? 0 : (b.status == 3 ? 2 : 1);
+          final shop = b.pack.isShop; // pembelian langsung di toko: tanpa tracking dan tiket
           return Scaffold(
             appBar: AppBar(
-              title: const Text('Detail Pesanan'),
+              title: Text(shop ? 'Detail Pembelian' : 'Detail Pesanan'),
               actions: [Padding(padding: const EdgeInsets.only(right: 14), child: Center(child: StatusChip(b)))],
             ),
             body: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
+                constraints: const BoxConstraints(maxWidth: 560),
                 child: ListView(padding: const EdgeInsets.all(16), children: [
                   if (b.cancelled)
                     Panel(
@@ -296,13 +302,49 @@ class _DetailScreenState extends State<DetailScreen> {
                               Expanded(child: Text('Menunggu pembayaran', style: TextStyle(fontWeight: FontWeight.w800))),
                             ]),
                             const SizedBox(height: 4),
-                            const Text('Pesanan baru diproses petugas setelah dibayar.', style: TextStyle(color: kMuted, fontSize: 13)),
+                            Text(shop ? 'Pembelian selesai setelah pembayaran berhasil.' : 'Pesanan baru diproses petugas setelah dibayar.',
+                                style: const TextStyle(color: kMuted, fontSize: 13)),
                             const SizedBox(height: 12),
                             RedButton('Bayar Sekarang', onPressed: () =>
                                 Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentMethodScreen(bookingId: b.id)))),
                           ]),
                         ),
                       ),
+                    if (shop && b.paid)
+                      Panel(
+                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
+                        child: Column(children: [
+                          Container(
+                            width: 68,
+                            height: 68,
+                            decoration: const BoxDecoration(shape: BoxShape.circle, color: kGreen),
+                            child: const Icon(Icons.check_rounded, color: Colors.white, size: 44),
+                          ),
+                          const SizedBox(height: 14),
+                          const Text('Pembelian berhasil', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                          const SizedBox(height: 4),
+                          const Text('Terima kasih sudah berbelanja!', style: TextStyle(color: kMuted)),
+                          const SizedBox(height: 16),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(color: kBg, borderRadius: BorderRadius.circular(14)),
+                            child: Row(children: [
+                              const Icon(Icons.storefront_outlined, color: kNavy),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                  const Text('Ambil barang di kasir CleanDrive', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+                                  const Text('Tunjukkan nomor pembelian ini ke kasir.', style: TextStyle(color: kMuted, fontSize: 12.5)),
+                                  const SizedBox(height: 4),
+                                  SelectableText(b.code, style: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1)),
+                                ]),
+                              ),
+                            ]),
+                          ),
+                        ]),
+                      )
+                    else if (!shop)
                     Panel(
                       padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
                       child: Column(children: [
@@ -356,10 +398,11 @@ class _DetailScreenState extends State<DetailScreen> {
                       ]),
                     ),
                   ],
-                  sec('Tiket Masuk'),
+                  sec(shop ? 'Rincian Pembelian' : 'Tiket Masuk'),
                   Panel(
                     padding: const EdgeInsets.all(20),
                     child: Column(children: [
+                      if (!shop) ...[
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: kLine)),
@@ -389,10 +432,11 @@ class _DetailScreenState extends State<DetailScreen> {
                         ]),
                       ),
                       const Divider(height: 28),
-                      kv('No. Pesanan', '#${b.id}'),
+                      ],
+                      kv(shop ? 'No. Pembelian' : 'No. Pesanan', '#${b.id}'),
                       if (!b.pack.isShop) kv('Kendaraan', '${b.vehicle.label} • ${b.plate}'),
                       kv(b.pack.isShop ? 'Jenis' : (b.pack.isOil ? 'Layanan' : 'Paket'), b.pack.title),
-                      kv(b.pack.isShop ? 'Waktu Pesan' : 'Jadwal', fmtDateTime.format(b.slot)),
+                      kv(b.pack.isShop ? 'Waktu Beli' : 'Jadwal', fmtDateTime.format(b.slot)),
                       if (b.pack.isOil && b.items.isEmpty) kv('Oli', 'Dibawa sendiri'),
                       if (b.items.isNotEmpty) ...[
                         const Divider(height: 18),
@@ -408,7 +452,7 @@ class _DetailScreenState extends State<DetailScreen> {
                       if (b.paid && b.coinsEarned > 0) kv('Coins didapat', '+${b.coinsEarned} Coins', valueColor: const Color(0xFFD08A00)),
                     ]),
                   ),
-                  if (b.status == 3 && !b.cancelled) ...[
+                  if (b.status == 3 && !b.cancelled && !shop) ...[
                     sec('Ulasan'),
                     Panel(
                       child: b.review == null
@@ -441,7 +485,7 @@ class _DetailScreenState extends State<DetailScreen> {
                       child: TextButton(
                         style: TextButton.styleFrom(foregroundColor: const Color(0xFFB3261E)),
                         onPressed: () => _cancel(b),
-                        child: const Text('Batalkan Pesanan'),
+                        child: Text(shop ? 'Batalkan Pembelian' : 'Batalkan Pesanan'),
                       ),
                     ),
                 ]),

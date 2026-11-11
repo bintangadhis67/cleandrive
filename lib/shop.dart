@@ -23,20 +23,21 @@ class ProductImage extends StatelessWidget {
       );
 }
 
-/// Tombol tambah / pengatur jumlah.
+/// Tombol tambah / pengatur jumlah (dibatasi oleh stok).
 class _QtyControl extends StatelessWidget {
   final Product p;
   const _QtyControl(this.p);
 
-  Widget _btn(IconData icon, VoidCallback onTap) => InkWell(
+  Widget _btn(IconData icon, VoidCallback? onTap) => InkWell(
         customBorder: const CircleBorder(),
         onTap: onTap,
-        child: Padding(padding: const EdgeInsets.all(6), child: Icon(icon, size: 20, color: kRed)),
+        child: Padding(padding: const EdgeInsets.all(6), child: Icon(icon, size: 20, color: onTap == null ? kMuted : kRed)),
       );
 
   @override
   Widget build(BuildContext context) {
     final q = app.qtyOf(p);
+    final left = app.stockOf(p);
     if (q == 0) {
       return SizedBox(
         width: double.infinity,
@@ -47,9 +48,9 @@ class _QtyControl extends StatelessWidget {
             padding: EdgeInsets.zero,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
-          onPressed: () => app.setQty(p, 1),
-          icon: const Icon(Icons.add_rounded, size: 18),
-          label: const Text('Tambah', style: TextStyle(fontSize: 13)),
+          onPressed: left <= 0 ? null : () => app.setQty(p, 1),
+          icon: Icon(left <= 0 ? Icons.block_rounded : Icons.add_rounded, size: 18),
+          label: Text(left <= 0 ? 'Stok Habis' : 'Tambah', style: const TextStyle(fontSize: 13)),
         ),
       );
     }
@@ -62,7 +63,7 @@ class _QtyControl extends StatelessWidget {
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
         _btn(Icons.remove_rounded, () => app.setQty(p, q - 1)),
         Text('$q', style: const TextStyle(fontWeight: FontWeight.w800)),
-        _btn(Icons.add_rounded, () => app.setQty(p, q + 1)),
+        _btn(Icons.add_rounded, q >= left ? null : () => app.setQty(p, q + 1)),
       ]),
     );
   }
@@ -78,6 +79,12 @@ class ShopScreen extends StatefulWidget {
 
 class _ShopScreenState extends State<ShopScreen> {
   late ProductCategory _cat = widget.initial;
+
+  @override
+  void initState() {
+    super.initState();
+    app.refreshStock(); // pastikan angka stok terbaru
+  }
 
   Widget _chip(ProductCategory c) {
     final sel = _cat == c;
@@ -103,37 +110,41 @@ class _ShopScreenState extends State<ShopScreen> {
     );
   }
 
-  Widget _card(Product p) => Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: kLine),
-          boxShadow: const [BoxShadow(color: Color(0x0F0B1F44), blurRadius: 12, offset: Offset(0, 5))],
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Stack(children: [
+  Widget _badge(String t, Color bg) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
+        child: Text(t, style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w800)),
+      );
+
+  Widget _card(Product p) {
+    final left = app.stockOf(p);
+    final out = left <= 0;
+    final low = !out && left < kLowStock; // stok di bawah 5: tampilkan jumlahnya
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: kLine),
+        boxShadow: const [BoxShadow(color: Color(0x0F0B1F44), blurRadius: 12, offset: Offset(0, 5))],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+          child: Stack(children: [
             Container(
               height: 132,
               width: double.infinity,
-              decoration: const BoxDecoration(
-                color: Color(0xFFEFF1F5),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-              ),
+              color: const Color(0xFFEFF1F5),
               padding: const EdgeInsets.all(8),
-              child: ProductImage(p),
+              child: Opacity(opacity: out ? .4 : 1, child: ProductImage(p)),
             ),
-            if (p.vehicleTag.isNotEmpty)
-              Positioned(
-                left: 8,
-                top: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: kNavy, borderRadius: BorderRadius.circular(10)),
-                  child: Text(p.vehicleTag, style: const TextStyle(color: kCream, fontSize: 10.5, fontWeight: FontWeight.w800)),
-                ),
-              ),
+            if (p.vehicleTag.isNotEmpty) Positioned(left: 8, top: 8, child: _badge(p.vehicleTag, kNavy)),
+            if (low) Positioned(right: 8, top: 8, child: _badge('Sisa $left', const Color(0xFFD08A00))),
+            if (out) Positioned.fill(child: Center(child: _badge('Stok habis', const Color(0xFFB3261E)))),
           ]),
-          Padding(
+        ),
+        Expanded(
+          child: Padding(
             padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, height: 1.2)),
@@ -141,12 +152,14 @@ class _ShopScreenState extends State<ShopScreen> {
               Text(p.desc, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: kMuted, fontSize: 11.5)),
               const SizedBox(height: 6),
               Text(rp(p.price), style: const TextStyle(fontWeight: FontWeight.w800, color: kRed, fontSize: 14.5)),
-              const SizedBox(height: 8),
+              const Spacer(),
               _QtyControl(p),
             ]),
           ),
-        ]),
-      );
+        ),
+      ]),
+    );
+  }
 
   Widget _oilBanner() => Padding(
         padding: const EdgeInsets.only(bottom: 14),
@@ -177,24 +190,30 @@ class _ShopScreenState extends State<ShopScreen> {
         builder: (context, _) {
           if (app.cartCount == 0) return const SizedBox.shrink();
           return Container(
+            width: double.infinity,
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: kLine))),
             child: SafeArea(
               top: false,
-              child: Row(children: [
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                    Text('${app.cartCount} item', style: const TextStyle(fontSize: 12.5, color: kMuted)),
-                    Text(rp(app.cartTotal), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 640),
+                  child: Row(children: [
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                        Text('${app.cartCount} item', style: const TextStyle(fontSize: 12.5, color: kMuted)),
+                        Text(rp(app.cartTotal), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                      ]),
+                    ),
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 22)),
+                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CartScreen())),
+                      icon: const Icon(Icons.shopping_cart_rounded),
+                      label: const Text('Keranjang'),
+                    ),
                   ]),
                 ),
-                FilledButton.icon(
-                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 22)),
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CartScreen())),
-                  icon: const Icon(Icons.shopping_cart_rounded),
-                  label: const Text('Keranjang'),
-                ),
-              ]),
+              ),
             ),
           );
         },
@@ -228,38 +247,41 @@ class _ShopScreenState extends State<ShopScreen> {
           ),
         ],
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 640),
-          child: Column(children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-              child: Row(children: [for (final c in ProductCategory.values) _chip(c)]),
-            ),
-            Expanded(
-              child: ListenableBuilder(
-                listenable: app,
-                builder: (context, _) => ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), children: [
-                  if (_cat == ProductCategory.oli) _oilBanner(),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: list.length,
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      mainAxisExtent: 300,
-                    ),
-                    itemBuilder: (_, i) => _card(list[i]),
-                  ),
-                ]),
+      body: Column(children: [
+        Expanded(
+          child: PageBox(
+            maxWidth: 640,
+            child: Column(children: [
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                child: Row(children: [for (final c in ProductCategory.values) _chip(c)]),
               ),
-            ),
-            _cartBar(),
-          ]),
+              Expanded(
+                child: ListenableBuilder(
+                  listenable: app,
+                  builder: (context, _) => ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), children: [
+                    if (_cat == ProductCategory.oli) _oilBanner(),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: list.length,
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        mainAxisSpacing: 12,
+                        crossAxisSpacing: 12,
+                        mainAxisExtent: 280,
+                      ),
+                      itemBuilder: (_, i) => _card(list[i]),
+                    ),
+                  ]),
+                ),
+              ),
+            ]),
+          ),
         ),
-      ),
+        _cartBar(),
+      ]),
     );
   }
 }
@@ -314,62 +336,60 @@ class CartScreen extends StatelessWidget {
                 ),
               );
             }
-            return Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: Column(children: [
-                  Expanded(
-                    child: ListView(padding: const EdgeInsets.all(16), children: [
-                      for (final l in app.cart) _line(l.product, l.qty),
-                      const SizedBox(height: 4),
-                      const Row(children: [
-                        Icon(Icons.storefront_outlined, size: 16, color: kMuted),
-                        SizedBox(width: 6),
-                        Expanded(
-                          child: Text('Pesanan diambil di kasir CleanDrive dengan menunjukkan tiket QR.',
-                              style: TextStyle(color: kMuted, fontSize: 12.5)),
-                        ),
-                      ]),
+            return PageBox(
+              maxWidth: 520,
+              child: Column(children: [
+                Expanded(
+                  child: ListView(padding: const EdgeInsets.all(16), children: [
+                    for (final l in app.cart) _line(l.product, l.qty),
+                    const SizedBox(height: 4),
+                    const Row(children: [
+                      Icon(Icons.storefront_outlined, size: 16, color: kMuted),
+                      SizedBox(width: 6),
+                      Expanded(
+                        child: Text('Beli langsung: bayar di aplikasi, lalu ambil barang di kasir CleanDrive dengan menunjukkan nomor pembelian.',
+                            style: TextStyle(color: kMuted, fontSize: 12.5)),
+                      ),
+                    ]),
+                  ]),
+                ),
+                Container(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: kLine))),
+                  child: SafeArea(
+                    top: false,
+                    child: Row(children: [
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                          Text('${app.cartCount} item', style: const TextStyle(fontSize: 12.5, color: kMuted)),
+                          Text(rp(app.cartTotal), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                        ]),
+                      ),
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 22)),
+                        onPressed: () {
+                          final now = DateTime.now();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ConfirmOrderScreen(
+                                vehicle: VehicleType.mobil,
+                                pack: shopPackage,
+                                plate: '',
+                                slot: now,
+                                estimate: now.add(Duration(minutes: shopPackage.minutes)),
+                                items: List.of(app.cart),
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.shopping_bag_rounded),
+                        label: const Text('Beli Sekarang'),
+                      ),
                     ]),
                   ),
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                    decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: kLine))),
-                    child: SafeArea(
-                      top: false,
-                      child: Row(children: [
-                        Expanded(
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                            Text('${app.cartCount} item', style: const TextStyle(fontSize: 12.5, color: kMuted)),
-                            Text(rp(app.cartTotal), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-                          ]),
-                        ),
-                        FilledButton.icon(
-                          style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 22)),
-                          onPressed: () {
-                            final now = DateTime.now();
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => ConfirmOrderScreen(
-                                  vehicle: VehicleType.mobil,
-                                  pack: shopPackage,
-                                  plate: '',
-                                  slot: now,
-                                  estimate: now.add(Duration(minutes: shopPackage.minutes)),
-                                  items: List.of(app.cart),
-                                ),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.arrow_forward_rounded),
-                          label: const Text('Checkout'),
-                        ),
-                      ]),
-                    ),
-                  ),
-                ]),
-              ),
+                ),
+              ]),
             );
           },
         ),

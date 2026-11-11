@@ -1,3 +1,5 @@
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -25,8 +27,29 @@ class CleanDriveApp extends StatelessWidget {
         title: 'CleanDrive',
         debugShowCheckedModeBanner: false,
         theme: buildTheme(),
+        scrollBehavior: const _AppScrollBehavior(),
+        // Batasi ukuran teks sistem supaya tampilan di HP tidak pecah.
+        builder: (context, child) {
+          final mq = MediaQuery.of(context);
+          return MediaQuery(
+            data: mq.copyWith(textScaler: mq.textScaler.clamp(minScaleFactor: 0.9, maxScaleFactor: 1.15)),
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
         home: const _Root(),
       );
+}
+
+/// Daftar geser (mis. produk di beranda) juga bisa diseret dengan mouse di laptop.
+class _AppScrollBehavior extends MaterialScrollBehavior {
+  const _AppScrollBehavior();
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.stylus,
+      };
 }
 
 class _Root extends StatefulWidget {

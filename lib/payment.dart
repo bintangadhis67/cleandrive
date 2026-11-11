@@ -430,10 +430,14 @@ class PaymentSuccessScreen extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 20),
-                const Text('Terima kasih, pesanan Anda sudah dikonfirmasi.',
-                    textAlign: TextAlign.center, style: TextStyle(color: kMuted)),
+                Text(
+                    (app.byId(payment.bookingId)?.pack.isShop ?? false)
+                        ? 'Terima kasih, pembelianmu berhasil. Ambil barang di kasir CleanDrive.'
+                        : 'Terima kasih, pesanan Anda sudah dikonfirmasi.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: kMuted)),
                 const SizedBox(height: 28),
-                RedButton('Lihat Pesanan', onPressed: () {
+                RedButton('Lihat Riwayat', onPressed: () {
                   final nav = Navigator.of(context);
                   app.requestTab(1);
                   nav.popUntil((r) => r.isFirst);
