@@ -9,6 +9,7 @@ import 'app_state.dart';
 import 'loyalty_models.dart';
 import 'models.dart';
 import 'payment.dart';
+import 'shop.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -19,9 +20,49 @@ class OrdersScreen extends StatefulWidget {
   State<OrdersScreen> createState() => _OrdersScreenState();
 }
 
+/// Gambar kecil di kartu riwayat.
+/// - Pembelian toko: foto produk yang dibeli (plus badge "+N" bila lebih dari satu jenis produk).
+/// - Cuci / ganti oli: tetap memakai ServiceThumb seperti sebelumnya.
+class _OrderThumb extends StatelessWidget {
+  final Booking b;
+  final double width;
+  const _OrderThumb(this.b, {this.width = 84});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!(b.pack.isShop && b.items.isNotEmpty)) return ServiceThumb(b.pack, b.vehicle, width: width);
+    final h = width * .6;
+    final first = b.items.first.product;
+    final more = b.items.length - 1;
+    return SizedBox(
+      width: width,
+      height: h,
+      child: Stack(children: [
+        Container(
+          width: width,
+          height: h,
+          decoration: BoxDecoration(color: const Color(0xFFEFF1F5), borderRadius: BorderRadius.circular(14)),
+          padding: const EdgeInsets.all(4),
+          child: ProductImage(first, height: h - 8),
+        ),
+        if (more > 0)
+          Positioned(
+            right: 4,
+            bottom: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(color: kNavy, borderRadius: BorderRadius.circular(10)),
+              child: Text('+$more', style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w800)),
+            ),
+          ),
+      ]),
+    );
+  }
+}
+
 class _OrdersScreenState extends State<OrdersScreen> {
-  int _filter = 0; // 0 semua, 1 selesai, 2 dibatalkan
-  static const _labels = ['Semua', 'Selesai', 'Dibatalkan'];
+  int _filter = 0; // 0 semua, 1 selesai, 2 dibatalkan, 3 ulasan
+  static const _labels = ['Semua', 'Selesai', 'Dibatalkan', 'Ulasan'];
 
   Widget _pill(int i) {
     final sel = _filter == i;
@@ -47,7 +88,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
         padding: const EdgeInsets.all(14),
         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DetailScreen(id: b.id))),
         child: Row(children: [
-          ServiceThumb(b.pack, b.vehicle, width: 84),
+          _OrderThumb(b),
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -76,6 +117,40 @@ class _OrdersScreenState extends State<OrdersScreen> {
         ]),
       );
 
+  /// Kartu pada tab "Ulasan": pesanan selesai (cuci / ganti oli) beserta rating-nya,
+  /// atau tombol "Beri ulasan" bila belum dinilai.
+  Widget _reviewCard(BuildContext context, Booking b) => Panel(
+        padding: const EdgeInsets.all(14),
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DetailScreen(id: b.id))),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            _OrderThumb(b, width: 72),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(b.code, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                Text(b.subtitle, style: const TextStyle(fontSize: 13)),
+                Text(fmtDateTime.format(b.slot), style: const TextStyle(fontSize: 12, color: kMuted)),
+              ]),
+            ),
+          ]),
+          const SizedBox(height: 10),
+          if (b.review != null) ...[
+            Row(children: [
+              StarRow(b.review!.rating.toDouble(), size: 20),
+              const SizedBox(width: 8),
+              Text(ratingLabel(b.review!.rating), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+            ]),
+            if (b.review!.comment.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(b.review!.comment, style: const TextStyle(fontSize: 13.5)),
+            ],
+          ] else
+            RedButton('Beri Rating & Ulasan', icon: Icons.star_rounded, onPressed: () =>
+                Navigator.push(context, MaterialPageRoute(builder: (_) => ReviewScreen(bookingId: b.id)))),
+        ]),
+      );
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
         listenable: app,
@@ -84,6 +159,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
           final list = switch (_filter) {
             1 => all.where((b) => b.status == 3 && !b.cancelled).toList(),
             2 => all.where((b) => b.cancelled).toList(),
+            // Ulasan: pesanan cuci/oli yang sudah selesai (belum diulas tampil paling atas).
+            3 => (all.where((b) => b.status == 3 && !b.cancelled && !b.pack.isShop).toList()
+              ..sort((a, b) {
+                final ra = a.review == null ? 0 : 1, rb = b.review == null ? 0 : 1;
+                return ra != rb ? ra - rb : b.slot.compareTo(a.slot);
+              })),
             _ => all,
           };
           return RefreshIndicator(
@@ -96,26 +177,33 @@ class _OrdersScreenState extends State<OrdersScreen> {
             child: LayoutBuilder(builder: (context, cons) {
               final cols = colsFor(cons.maxWidth - 32, minWidth: 460);
               return ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: [
-                pageHeader('Riwayat', 'Semua pesanan cuci, ganti oli, dan pembelian tokomu ada di sini.'),
+                pageHeader('Riwayat', 'Semua pesanan cuci, ganti oli, pembelian toko, dan ulasanmu ada di sini.'),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  child: Row(children: [for (var i = 0; i < 3; i++) _pill(i)]),
+                  child: Row(children: [for (var i = 0; i < _labels.length; i++) _pill(i)]),
                 ),
                 const SizedBox(height: 16),
                 if (list.isEmpty)
-                  const Panel(
-                    padding: EdgeInsets.symmetric(vertical: 36, horizontal: 16),
+                  Panel(
+                    padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 16),
                     child: Center(
                       child: Column(children: [
-                        Icon(Icons.history_rounded, size: 48, color: kMuted),
-                        SizedBox(height: 10),
-                        Text('Belum ada riwayat', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                        Text('Pesanan dan pembelian yang kamu buat akan muncul di sini.',
-                            textAlign: TextAlign.center, style: TextStyle(color: kMuted)),
+                        Icon(_filter == 3 ? Icons.star_outline_rounded : Icons.history_rounded, size: 48, color: kMuted),
+                        const SizedBox(height: 10),
+                        Text(_filter == 3 ? 'Belum ada ulasan' : 'Belum ada riwayat',
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                        Text(
+                            _filter == 3
+                                ? 'Selesaikan pesanan cuci atau ganti oli, lalu beri rating di sini.'
+                                : 'Pesanan dan pembelian yang kamu buat akan muncul di sini.',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: kMuted)),
                       ]),
                     ),
                   ),
-                ColumnsGrid(cols: cols, gap: 12, children: [for (final b in list) _card(context, b)]),
+                ColumnsGrid(cols: cols, gap: 12, children: [
+                  for (final b in list) _filter == 3 ? _reviewCard(context, b) : _card(context, b),
+                ]),
               ]);
             }),
           );
@@ -577,60 +665,6 @@ class _ReviewScreenState extends State<ReviewScreen> {
               Center(child: TextButton(onPressed: () => Navigator.pop(context), child: const Text('Nanti Saja'))),
             ]),
           ),
-        ),
-      );
-}
-
-// ---------- ULASAN SAYA (desain layar 17) ----------
-class MyReviewsScreen extends StatelessWidget {
-  const MyReviewsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Ulasan Saya')),
-        body: ListenableBuilder(
-          listenable: app,
-          builder: (context, _) {
-            final list = app.bookings.where((b) => b.review != null).toList()
-              ..sort((a, b) => b.review!.createdAt.compareTo(a.review!.createdAt));
-            if (list.isEmpty) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Text('Belum ada ulasan. Selesaikan pesanan lalu beri rating.', textAlign: TextAlign.center, style: TextStyle(color: kMuted)),
-                ),
-              );
-            }
-            return Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: ListView(padding: const EdgeInsets.all(16), children: [
-                  for (final b in list)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Panel(
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DetailScreen(id: b.id))),
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(b.code, style: const TextStyle(fontWeight: FontWeight.w800)),
-                          Text(b.pack.title, style: const TextStyle(fontSize: 13)),
-                          Text(fmtDate.format(b.slot), style: const TextStyle(fontSize: 12, color: kMuted)),
-                          const SizedBox(height: 8),
-                          Row(children: [
-                            StarRow(b.review!.rating.toDouble(), size: 20),
-                            const Spacer(),
-                            Text('${b.review!.rating}.0', style: const TextStyle(fontWeight: FontWeight.w700)),
-                          ]),
-                          if (b.review!.comment.isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            Text(b.review!.comment, style: const TextStyle(fontSize: 13.5)),
-                          ],
-                        ]),
-                      ),
-                    ),
-                ]),
-              ),
-            );
-          },
         ),
       );
 }
