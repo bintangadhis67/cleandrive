@@ -44,7 +44,13 @@ class VoucherHomeCard extends StatelessWidget {
                   top: -28,
                   child: Container(width: 150, height: 150, decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0x2060BBE9))),
                 ),
-                const Positioned(right: 30, top: 22, child: Icon(Icons.percent_rounded, size: 54, color: kSky)),
+                // Gambar ilustrasi voucher (menggantikan ikon % polos).
+                Positioned(
+                  right: 8,
+                  top: 6,
+                  height: 112,
+                  child: IgnorePointer(child: Image.asset('assets/images/voucher_banner.png', fit: BoxFit.contain)),
+                ),
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

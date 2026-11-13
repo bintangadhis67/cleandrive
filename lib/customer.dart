@@ -267,12 +267,21 @@ class BerandaTab extends StatelessWidget {
           final header = Padding(
             padding: const EdgeInsets.only(top: 8, bottom: 16),
             child: Row(children: [
+              // Logo kecil di kiri atas, sebelum sapaan nama.
+              Container(
+                width: 48,
+                height: 48,
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(color: kNavy, borderRadius: BorderRadius.circular(14)),
+                child: Image.asset('assets/images/logo_transparent.png', fit: BoxFit.contain),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('Halo, $first!',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
+                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
                   const Text('Siap cuci kendaraanmu hari ini?', style: TextStyle(color: kMuted)),
                 ]),
               ),
