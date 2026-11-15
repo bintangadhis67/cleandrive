@@ -2,6 +2,7 @@ import 'package:intl/intl.dart';
 
 import '../catalog.dart';
 import '../loyalty_models.dart';
+import '../membership_models.dart';
 import '../models.dart';
 import '../notification_models.dart';
 import 'repository.dart';
@@ -30,15 +31,25 @@ class _Wallet {
   final Set<String> promos = {};
 }
 
+/// Catatan langganan membership satu pengguna (terpisah dari dompet Coins).
+class _MemberRec {
+  final String id;
+  final MembershipTier tier;
+  final DateTime start, end;
+  final bool cancelled;
+  const _MemberRec(this.id, this.tier, this.start, this.end, {this.cancelled = false});
+}
+
 /// Data tiruan di memori supaya UI bisa dijalankan tanpa backend.
 /// Akun demo: admin@cleandrive.com / admin123 dan budi@mail.com / 123456
 class MockRepository implements Repository {
   static const _balances = {
-    PayMethod.gopay: 120000,
-    PayMethod.ovo: 200000,
-    PayMethod.dana: 90000,
-    PayMethod.shopeepay: 75000,
-    PayMethod.livin: 150000,
+    // Saldo simulasi (data contoh). Semua >= Rp 399.000 agar paket Platinum bisa dibeli dengan metode apa pun.
+    PayMethod.gopay: 1500000,
+    PayMethod.ovo: 2000000,
+    PayMethod.dana: 1000000,
+    PayMethod.shopeepay: 800000,
+    PayMethod.livin: 3000000,
   };
 
   static const _tpls = [
@@ -48,16 +59,19 @@ class MockRepository implements Repository {
         ['Potongan 10% maksimal Rp 15.000', 'Berlaku untuk semua paket', 'Berlaku 1 kali per akun']),
     _Tpl('v3', 'WELCOME-10K', 'Selamat Datang', 10000, 0, 0, 40000, 60,
         ['Khusus pengguna baru', 'Berlaku untuk semua paket', 'Berlaku 1 kali per akun']),
-    // Reward khusus membership
+    // Voucher eksklusif membership BERBAYAR (bukan dari Coins). minTier: 1 Bronze, 2 Silver, 3 Gold, 4 Platinum.
+    _Tpl('v7', 'BRONZE-5K', 'Reward Bronze', 5000, 0, 0, 30000, 30,
+        ['Khusus member Bronze ke atas', 'Berlaku untuk cuci, ganti oli, dan toko', 'Berlaku 1 kali per akun'],
+        minTier: 1),
     _Tpl('v4', 'SILVER-15K', 'Reward Silver', 15000, 0, 0, 60000, 45,
         ['Khusus member Silver ke atas', 'Berlaku untuk cuci, ganti oli, dan toko', 'Berlaku 1 kali per akun'],
-        minTier: 1),
+        minTier: 2),
     _Tpl('v5', 'GOLD-20', 'Reward Gold', 0, 20, 40000, 75000, 45,
         ['Khusus member Gold ke atas', 'Potongan 20% maksimal Rp 40.000', 'Berlaku 1 kali per akun'],
-        minTier: 2),
+        minTier: 3),
     _Tpl('v6', 'PLATINUM-50K', 'Reward Platinum', 50000, 0, 0, 150000, 60,
         ['Khusus member Platinum', 'Berlaku untuk cuci, ganti oli, dan toko', 'Berlaku 1 kali per akun'],
-        minTier: 3),
+        minTier: 4),
   ];
 
   /// Promo Coins sekali klaim: (id, judul, deskripsi, coins)
@@ -81,7 +95,16 @@ class MockRepository implements Repository {
   final Map<String, List<AppNotification>> _notifs = {}; // email -> notifikasi
   final Set<String> _reminded = {}; // bookingId yang sudah dikirimi pengingat
   final Map<String, int> _stock = {for (final p in products) p.id: p.stock}; // stok produk toko
-  int _bookingSeq = 0, _paySeq = 0, _coinSeq = 0, _notifSeq = 0;
+  int _bookingSeq = 0, _paySeq = 0, _coinSeq = 0, _notifSeq = 0, _memSeq = 0, _garageSeq = 0;
+
+  // Membership: data dan transaksi terpisah dari Coins.
+  final Map<String, _MemberRec> _members = {}; // email -> langganan terakhir
+  final Map<String, MembershipOrder> _mOrders = {}; // id pesanan membership
+  final Map<String, String> _mOwner = {}; // id pesanan membership -> email
+  final Map<String, List<MembershipTransaction>> _mTx = {}; // email -> riwayat transaksi membership
+
+  // Garasi kendaraan per pengguna.
+  final Map<String, List<GarageVehicle>> _garage = {};
 
   MockRepository() {
     _seedHistory();
@@ -107,42 +130,23 @@ class MockRepository implements Repository {
     return n;
   }
 
-  /// Menambah Coins (sudah termasuk bonus level). Mengembalikan (jumlah Coins, level baru bila naik).
-  (int, Tier?) _earn(String email, CoinKind kind, String title, int base, {String? note, DateTime? at}) {
+  /// Menambah Coins (reward gratis). Coins tidak memengaruhi level membership. Mengembalikan jumlah Coins.
+  int _earn(String email, CoinKind kind, String title, int base, {String? note, DateTime? at}) {
     final w = _walletOf(email);
-    final before = tierFor(w.lifetime);
-    final coins = withTierBonus(base, before);
-    w.balance += coins;
-    w.lifetime += coins;
-    final extra = coins - base;
-    final notes = <String>[
-      if (note != null && note.isNotEmpty) note,
-      if (extra > 0) 'Bonus ${before.label} +$extra',
-    ];
+    w.balance += base;
+    w.lifetime += base;
     w.entries.insert(
       0,
       CoinEntry(
         id: 'c${++_coinSeq}',
         kind: kind,
         title: title,
-        note: notes.join(' • '),
-        amount: coins,
+        note: note ?? '',
+        amount: base,
         createdAt: at ?? DateTime.now(),
       ),
     );
-    final after = tierFor(w.lifetime);
-    Tier? up;
-    if (after.index > before.index) {
-      up = after;
-      _notify(
-        email,
-        NotifType.points,
-        'Selamat! Kamu naik ke ${after.label}',
-        'Bonus Coins +${after.bonusPct}% dan voucher eksklusif ${after.label} sudah menunggumu.',
-        target: 'loyalty',
-      );
-    }
-    return (coins, up);
+    return base;
   }
 
   void _spend(String email, int coins, String title, String note) {
@@ -165,6 +169,10 @@ class MockRepository implements Repository {
     final now = DateTime.now();
     final day = DateTime(now.year, now.month, now.day);
     final email = _users[1].email;
+    _garage[email] = [
+      GarageVehicle(id: 'g${++_garageSeq}', type: VehicleType.mobil, brand: 'Toyota', model: 'Avanza', year: 2019, color: 'Putih', plate: 'L 1234 AB'),
+      GarageVehicle(id: 'g${++_garageSeq}', type: VehicleType.motor, brand: 'Honda', model: 'Beat', year: 2021, color: 'Hitam', plate: 'W 5678 CD'),
+    ];
     final rows = [
       (VehicleType.mobil, packages[1], 'L 1234 AB', 10, 3, 5, 'Pelayanannya cepat, mobil jadi bersih banget. Recommended!'),
       (VehicleType.motor, packages[0], 'W 5678 CD', 14, 5, 4, 'Proses cepat dan hasilnya memuaskan.'),
@@ -199,7 +207,7 @@ class MockRepository implements Repository {
     w.streak = 7;
     w.last = day.subtract(const Duration(days: 14)).add(const Duration(hours: 8));
 
-    _notify(email, NotifType.promo, 'Selamat datang di CleanDrive!', 'Kumpulkan Coins dan naik level membership.',
+    _notify(email, NotifType.promo, 'Selamat datang di CleanDrive!', 'Kumpulkan Coins gratis dan nikmati berbagai reward.',
             target: 'loyalty', push: false, at: day.subtract(const Duration(days: 12)))
         .read = true;
     _notify(email, NotifType.voucher, 'Voucher spesial menunggumu', 'Klaim VOUCHER-20K sebelum kedaluwarsa.',
@@ -343,7 +351,7 @@ class MockRepository implements Repository {
       validUntil: DateTime.now().add(Duration(days: t.validDays)),
       terms: t.terms,
       minTier: t.minTier,
-      locked: tierFor(_walletOf(_u.email).lifetime).index < t.minTier,
+      locked: _memberRank(_u.email) < t.minTier,
       claimed: _claims.containsKey(key),
       used: (_claims[key] ?? '').isNotEmpty,
     );
@@ -369,6 +377,7 @@ class MockRepository implements Repository {
       if (taken >= 3) throw ApiException('Slot jam ${DateFormat('HH:mm').format(slot)} sudah penuh.');
     }
     if (pack.isOil) {
+      if (items.isEmpty) throw ApiException('Pilih oli dari toko CleanDrive. Oli dari luar tidak diperbolehkan.');
       if (items.length > 1) throw ApiException('Pilih satu jenis oli saja.');
       for (final l in items) {
         if (l.product.category != ProductCategory.oli || !l.product.fits(vehicle)) {
@@ -392,7 +401,7 @@ class MockRepository implements Repository {
       final t = _tpls.where((e) => e.code == voucherCode).firstOrNull;
       if (t == null) throw ApiException('Voucher tidak ditemukan.');
       final v = _voucher(t);
-      if (v.locked) throw ApiException('Voucher ini khusus member ${v.tierLabel}.');
+      if (v.locked) throw ApiException('Voucher ini khusus member ${v.tierLabel}. Beli membership untuk membukanya.');
       if (!v.claimed) throw ApiException('Voucher belum diklaim.');
       if (v.used) throw ApiException('Voucher sudah pernah dipakai.');
       if (v.expired) throw ApiException('Voucher sudah kedaluwarsa.');
@@ -401,6 +410,14 @@ class MockRepository implements Repository {
       code = v.code;
     }
     final b = _make(_u, vehicle, pack, plate, when, discount, code, items: items);
+    // Diskon membership aktif untuk jasa layanan (bukan produk toko). Dihitung di sisi server.
+    final mem = _userMembership(_u.email);
+    if (!pack.isShop && mem != null && mem.isActive) {
+      var md = mem.plan.discountFor(pack.priceFor(vehicle));
+      if (md > price - discount) md = price - discount;
+      b.memberDiscount = md;
+      b.memberLabel = '${mem.plan.name} ${mem.plan.discountPct}%';
+    }
     if (code != null) {
       final t = _tpls.firstWhere((e) => e.code == code);
       _claims['${_u.email}|${t.id}'] = b.id;
@@ -470,7 +487,7 @@ class MockRepository implements Repository {
       _claims['$email|${t.id}'] = ''; // voucher kembali tersedia
     }
     _notify(email, NotifType.order, 'Pesanan dibatalkan',
-        wasPaid ? '${b.code} dibatalkan. Pembayaran dan Coins yang dipakai dikembalikan.' : '${b.code} dibatalkan.',
+        wasPaid ? '${b.code} dibatalkan. Pembayaran dikembalikan dan Coins pesanan ini ditarik.' : '${b.code} dibatalkan.',
         target: 'order:${b.id}', push: false);
     return _decorate(b);
   }
@@ -493,7 +510,7 @@ class MockRepository implements Repository {
     await _lag();
     final t = _tpls.where((e) => e.id == id).firstOrNull ?? (throw ApiException('Voucher tidak ditemukan.'));
     final v = _voucher(t);
-    if (v.locked) throw ApiException('Voucher ini khusus member ${v.tierLabel}. Kumpulkan Coins untuk naik level.');
+    if (v.locked) throw ApiException('Voucher ini khusus member ${v.tierLabel}. Beli membership untuk membukanya.');
     final key = '${_u.email}|$id';
     if (_claims.containsKey(key)) throw ApiException('Voucher ini sudah kamu klaim.');
     _claims[key] = '';
@@ -510,11 +527,12 @@ class MockRepository implements Repository {
     if (b.cancelled) throw ApiException('Pesanan sudah dibatalkan.');
     if (b.paid) throw ApiException('Pesanan ini sudah dibayar.');
 
+    // Total dihitung server: harga - voucher - diskon membership - Coins (bila dipakai).
     var discount = 0;
     if (coins > 0) {
       final w = _walletOf(_u.email);
-      final max = maxRedeemCoins(total: b.total, balance: w.balance, tier: tierFor(w.lifetime));
-      if (coins % 10 != 0) throw ApiException('Coins ditukar dalam kelipatan 10.');
+      final max = maxRedeemCoins(total: b.total, balance: w.balance);
+      if (coins % kCoinStep != 0) throw ApiException('Coins ditukar dalam kelipatan $kCoinStep.');
       if (coins > max) throw ApiException('Coins melebihi batas penukaran ($max Coins).');
       discount = coins * kCoinValue;
     }
@@ -541,8 +559,7 @@ class MockRepository implements Repository {
 
   Payment _pay(String id) => _payments[id] ?? (throw ApiException('Transaksi tidak ditemukan.'));
 
-  /// Menandai lunas, memotong Coins yang dipakai, lalu memberi Coins transaksi
-  /// sesuai tingkat pembayaran (terendah / menengah / tertinggi).
+  /// Menandai lunas, memotong Coins yang dipakai, lalu memberi Coins transaksi sesuai tingkat pembayaran.
   void _markPaid(Payment p) {
     final b = _find(p.bookingId);
     final email = _owner[b.id]!;
@@ -578,11 +595,10 @@ class MockRepository implements Repository {
     final band = payBandFor(b.total);
     final r = _earn(email, CoinKind.transaction, 'Transaksi ${b.code}', band.coins,
         note: 'Tingkat ${band.label} • ${rp(b.total)}');
-    b.coinsEarned = r.$1;
-    p.coinsEarned = r.$1;
-    p.levelUp = r.$2;
+    b.coinsEarned = r;
+    p.coinsEarned = r;
     _notify(email, NotifType.payment, b.pack.isShop ? 'Pembelian berhasil' : 'Pembayaran berhasil',
-        '${b.code} • ${rp(b.total)} via ${p.method.label}. Kamu dapat +${r.$1} Coins.',
+        '${b.code} • ${rp(b.total)} via ${p.method.label}. Kamu dapat +$r Coins.',
         target: 'order:${b.id}', push: false);
   }
 
@@ -635,7 +651,7 @@ class MockRepository implements Repository {
     final hasText = comment.trim().isNotEmpty;
     final r = _earn(email, CoinKind.review, 'Ulasan ${b.code}', kReviewCoins + (hasText ? kReviewCommentBonus : 0),
         note: hasText ? 'Ulasan dengan komentar' : 'Rating');
-    _notify(email, NotifType.points, 'Terima kasih atas ulasanmu', 'Kamu dapat +${r.$1} Coins.',
+    _notify(email, NotifType.points, 'Terima kasih atas ulasanmu', 'Kamu dapat +$r Coins.',
         target: 'loyalty', push: false);
     return b;
   }
@@ -705,9 +721,9 @@ class MockRepository implements Repository {
     final r = _earn(_u.email, CoinKind.checkin, 'Check-in harian', kCheckInRewards[dayNo],
         note: 'Hari ke-${dayNo + 1}');
     _notify(_u.email, NotifType.points, 'Check-in berhasil',
-        '+${r.$1} Coins. Streak ${w.streak} hari, jangan putus ya!',
+        '+$r Coins. Streak ${w.streak} hari, jangan putus ya!',
         target: 'loyalty', push: false);
-    return CoinAward(r.$1, w.streak, r.$2, 'Check-in hari ke-${dayNo + 1}');
+    return CoinAward(r, w.streak, 'Check-in hari ke-${dayNo + 1}');
   }
 
   @override
@@ -720,9 +736,189 @@ class MockRepository implements Repository {
     if (lock != null) throw ApiException(lock);
     w.promos.add(id);
     final r = _earn(_u.email, CoinKind.promo, tpl.$2, tpl.$4);
-    _notify(_u.email, NotifType.points, 'Promo Coins diklaim', '+${r.$1} Coins dari ${tpl.$2}.',
+    _notify(_u.email, NotifType.points, 'Promo Coins diklaim', '+$r Coins dari ${tpl.$2}.',
         target: 'loyalty', push: false);
-    return CoinAward(r.$1, w.streak, r.$2, tpl.$2);
+    return CoinAward(r, w.streak, tpl.$2);
+  }
+
+  // ---------- membership (produk berbayar, terpisah dari Coins) ----------
+  UserMembership? _userMembership(String email) {
+    final r = _members[email];
+    if (r == null) return null;
+    final status = r.cancelled
+        ? MembershipStatus.cancelled
+        : (DateTime.now().isAfter(r.end) ? MembershipStatus.expired : MembershipStatus.active);
+    return UserMembership(id: r.id, tier: r.tier, status: status, startDate: r.start, endDate: r.end);
+  }
+
+  /// 0 = tanpa membership aktif, 1 = Bronze, ... 4 = Platinum.
+  int _memberRank(String email) {
+    final m = _userMembership(email);
+    return (m != null && m.isActive) ? m.tier.rank : 0;
+  }
+
+  MembershipOrder? _pendingOrder(String email) {
+    for (final o in _mOrders.values) {
+      if (_mOwner[o.id] == email && o.status == 'pending' && !o.expired) return o;
+    }
+    return null;
+  }
+
+  MembershipOrder _mOrder(String id) {
+    final o = _mOrders[id] ?? (throw ApiException('Pesanan membership tidak ditemukan.'));
+    if (_mOwner[id] != _u.email) throw ApiException('Bukan pesananmu.');
+    if (o.status == 'pending' && DateTime.now().isAfter(o.expiresAt)) o.status = 'expired';
+    return o;
+  }
+
+  @override
+  Future<MembershipInfo> membership() async {
+    await _lag(100);
+    final email = _u.email;
+    final hist = List<MembershipTransaction>.of(_mTx[email] ?? const <MembershipTransaction>[])
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return MembershipInfo(current: _userMembership(email), pending: _pendingOrder(email), history: hist);
+  }
+
+  @override
+  Future<MembershipOrder> startMembershipPurchase(MembershipTier tier, PayMethod method) async {
+    await _lag(300);
+    final email = _u.email;
+    final plan = planOf(tier);
+    final cur = _userMembership(email);
+    final renewal = cur != null && cur.isActive && cur.tier == tier;
+    // Satu pesanan menunggu pembayaran per pengguna: yang lama dibatalkan.
+    for (final o in _mOrders.values) {
+      if (_mOwner[o.id] == email && o.status == 'pending') o.status = 'cancelled';
+    }
+    final n = ++_memSeq;
+    final trx = 'MBR-${DateFormat('yyMMdd').format(DateTime.now())}-${n.toString().padLeft(3, '0')}';
+    final o = MembershipOrder(
+      id: 'm$n',
+      trx: trx,
+      tier: tier,
+      amount: plan.price, // harga dari paket (server), tidak bisa diubah dari layar
+      method: method,
+      status: 'pending',
+      expiresAt: DateTime.now().add(const Duration(minutes: 10)),
+      renewal: renewal,
+      qrString: method.isQris ? 'CLEANDRIVE-QRIS|$trx|${plan.price}|MEMBERSHIP-${tier.name.toUpperCase()}' : null,
+      balance: method.isQris ? null : _balances[method],
+    );
+    _mOrders[o.id] = o;
+    _mOwner[o.id] = email;
+    return o;
+  }
+
+  @override
+  Future<MembershipOrder> membershipOrder(String id) async => _mOrder(id);
+
+  /// Mengaktifkan atau memperpanjang membership setelah pembayaran berhasil (sisi server).
+  void _activateMembership(MembershipOrder o) {
+    if (o.status == 'paid') return;
+    final email = _mOwner[o.id]!;
+    final now = DateTime.now();
+    final cur = _userMembership(email);
+    final plan = o.plan;
+    DateTime start = now, end = now.add(Duration(days: plan.durationDays));
+    if (cur != null && cur.isActive && cur.tier == o.tier) {
+      // Perpanjang: masa aktif ditambah dari tanggal berakhir saat ini.
+      start = cur.startDate ?? now;
+      end = cur.endDate!.add(Duration(days: plan.durationDays));
+    }
+    _members[email] = _MemberRec('um$email', o.tier, start, end);
+    o.status = 'paid';
+    (_mTx[email] ??= <MembershipTransaction>[]).add(MembershipTransaction(
+      id: o.id,
+      trx: o.trx,
+      tier: o.tier,
+      amount: o.amount,
+      method: o.method,
+      renewal: o.renewal,
+      createdAt: now,
+    ));
+    _notify(email, NotifType.membership, o.renewal ? 'Membership diperpanjang' : 'Membership ${plan.name} aktif',
+        'Berlaku hingga ${DateFormat('d MMM yyyy', 'id_ID').format(end)}.',
+        target: 'membership', push: false);
+  }
+
+  @override
+  Future<MembershipOrder> confirmMembershipPayment(String id) async {
+    await _lag(500);
+    final o = _mOrder(id);
+    if (o.method.isQris) throw ApiException('Pembayaran QRIS dilakukan dengan scan QR.');
+    if (o.paid) return o;
+    if (o.status == 'cancelled') throw ApiException('Pesanan membership sudah dibatalkan.');
+    if (o.expired) throw ApiException('Waktu pembayaran sudah habis.');
+    if ((o.balance ?? 0) < o.amount) throw ApiException('Saldo ${o.method.label} tidak cukup.');
+    _activateMembership(o);
+    return o;
+  }
+
+  @override
+  Future<MembershipOrder> simulateMembershipQris(String id) async {
+    await _lag(400);
+    final o = _mOrder(id);
+    if (o.paid) return o;
+    if (o.status == 'cancelled') throw ApiException('Pesanan membership sudah dibatalkan.');
+    if (o.expired) throw ApiException('QR sudah kedaluwarsa. Buat QR baru.');
+    _activateMembership(o);
+    return o;
+  }
+
+  @override
+  Future<void> cancelMembershipOrder(String id) async {
+    await _lag(200);
+    final o = _mOrder(id);
+    if (o.paid) throw ApiException('Pesanan sudah dibayar dan tidak bisa dibatalkan.');
+    o.status = 'cancelled';
+    final email = _u.email;
+    if (_members[email] == null) {
+      final now = DateTime.now();
+      _members[email] = _MemberRec('um$email', o.tier, now, now, cancelled: true);
+    }
+  }
+
+  // ---------- garasi kendaraan ----------
+  @override
+  Future<List<GarageVehicle>> garage() async {
+    await _lag(100);
+    return List<GarageVehicle>.of(_garage[_u.email] ?? const <GarageVehicle>[]);
+  }
+
+  @override
+  Future<GarageVehicle> saveVehicle(GarageVehicle v) async {
+    await _lag(250);
+    final list = _garage.putIfAbsent(_u.email, () => <GarageVehicle>[]);
+    final plate = v.plate.trim().toUpperCase();
+    if (plate.isEmpty) throw ApiException('Nomor polisi wajib diisi.');
+    if (v.brand.trim().isEmpty || v.model.trim().isEmpty) throw ApiException('Merek dan model wajib diisi.');
+    if (v.year < 1980 || v.year > DateTime.now().year + 1) throw ApiException('Tahun kendaraan tidak valid.');
+    if (list.any((e) => e.plate.replaceAll(' ', '') == plate.replaceAll(' ', '') && e.id != v.id)) {
+      throw ApiException('Nomor polisi $plate sudah ada di garasimu.');
+    }
+    final saved = GarageVehicle(
+      id: v.id.isEmpty ? 'g${++_garageSeq}' : v.id,
+      type: v.type,
+      brand: v.brand.trim(),
+      model: v.model.trim(),
+      year: v.year,
+      color: v.color.trim(),
+      plate: plate,
+    );
+    final i = list.indexWhere((e) => e.id == saved.id);
+    if (i >= 0) {
+      list[i] = saved;
+    } else {
+      list.add(saved);
+    }
+    return saved;
+  }
+
+  @override
+  Future<void> deleteVehicle(String id) async {
+    await _lag(200);
+    _garage[_u.email]?.removeWhere((e) => e.id == id);
   }
 
   // ---------- notifikasi ----------

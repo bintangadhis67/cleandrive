@@ -1,2 +1,7 @@
-2026/11/13-19:31:31.975 3e84 Creating DB C:\Users\Bintang\AppData\Local\Temp\flutter_tools.99f1ba9b\flutter_tools_chrome_device.50b28b3f\Default\shared_proto_db since it was missing.
-2026/11/13-19:31:32.032 3e84 Reusing MANIFEST C:\Users\Bintang\AppData\Local\Temp\flutter_tools.99f1ba9b\flutter_tools_chrome_device.50b28b3f\Default\shared_proto_db/MANIFEST-000001
+2026/11/15-12:58:42.910 56dc Reusing MANIFEST C:\Users\Bintang\AppData\Local\Temp\flutter_tools.9b88e52e\flutter_tools_chrome_device.a9c5d29e\Default\shared_proto_db/MANIFEST-000001
+2026/11/15-12:58:42.911 56dc Recovering log #4
+2026/11/15-12:58:42.912 56dc Reusing old log C:\Users\Bintang\AppData\Local\Temp\flutter_tools.9b88e52e\flutter_tools_chrome_device.a9c5d29e\Default\shared_proto_db/000004.log 
+2026/11/15-12:58:42.912 56dc Delete type=0 #3
+2026/11/15-12:58:55.106 50d8 Level-0 table #8: started
+2026/11/15-12:58:55.110 50d8 Level-0 table #8: 135282 bytes OK
+2026/11/15-12:58:55.115 50d8 Delete type=0 #4

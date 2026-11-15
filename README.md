@@ -4,6 +4,19 @@ Frontend ini BERDIRI SENDIRI dan belum terhubung ke backend. Semua data memakai 
 Desain mengikuti mockup 17 layar: splash, onboarding, login/register, beranda dengan voucher, klaim voucher,
 layanan, konfirmasi pesanan, metode pembayaran (QRIS, GoPay, OVO, DANA, ShopeePay, Livin' by Mandiri),
 pembayaran berhasil, tiket dan tracking, rating dan ulasan, riwayat pesanan, ulasan saya.
+Versi 1.3.0 (sisi pelanggan)
+Tata letak FULL-WIDTH: HP (< 720px) memakai menu bawah, tablet/laptop memakai menu samping (NavigationRail), isi halaman
+mengisi seluruh lebar layar dan berubah menjadi 2 kolom di layar lebar. Helper ada di `lib/widgets.dart`
+(PageList, TwoPane, AutoGrid, ColumnsGrid, Skeleton, EmptyState, ErrorState).
+Design tokens (warna, radius, bayangan) ada di `lib/theme.dart`.
+Coins (`loyalty.dart`, `loyalty_models.dart`): reward GRATIS dari check-in, transaksi, ulasan, promo.
+Coins TIDAK menentukan level dan TIDAK bisa memotong total transaksi (tidak ada lagi tukar Coins di pembayaran).
+Membership (`membership.dart`, `membership_models.dart`): produk BERBAYAR Bronze/Silver/Gold/Platinum dengan harga,
+durasi, diskon layanan, checkout dan pembayaran sendiri, kartu digital, serta riwayat transaksi terpisah dari Coins.
+Harga/benefit di `kMembershipPlans` adalah data contoh (nanti dari admin/API).
+Baru: Garasi Kendaraan (`garage.dart`), Bantuan & FAQ (`help.dart`), Pengaturan (`settings.dart`), tab Toko di menu utama.
+Frontend admin belum diubah.
+
 Fitur tambahan (v1.2.0, sisi pelanggan)
 Toko CleanDrive: daftar makanan, minuman, dan oli (`lib/catalog.dart`), keranjang, checkout, bayar, lalu ambil
 di kasir dengan tiket QR. Ubah nama, harga, dan gambar produk di `catalog.dart`.
@@ -18,9 +31,7 @@ Coins dari check-in harian (streak 7 hari: 5, 5, 10, 10, 15, 15, 30), transaksi,
 Coins transaksi tergantung total pembayaran: terendah (< Rp 50.000) +10, menengah (Rp 50.000 - 149.999) +30,
 tertinggi (>= Rp 150.000) +75.
 Ulasan +10 Coins (+5 bila menulis komentar).
-1 Coin = Rp 100 potongan, ditukar di layar metode pembayaran.
-Level Bronze (0), Silver (300), Gold (1.000), Platinum (2.500 Coins yang pernah didapat). Semakin tinggi level:
-bonus Coins 0/10/20/30%, batas tukar Coins 30/40/50/60% dari total, dan voucher reward eksklusif.
+(Aturan lama level dari Coins dan tukar Coins sudah dihapus di v1.3.0.)
 Frontend admin belum diubah pada versi ini.
 Cara memasang
 Salin isi folder ini ke project Flutter kamu, timpa yang lama:

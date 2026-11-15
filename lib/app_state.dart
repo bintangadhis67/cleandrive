@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import 'data/repository.dart';
 import 'loyalty_models.dart';
+import 'membership_models.dart';
 import 'models.dart';
 import 'notification_models.dart';
 
@@ -17,8 +18,12 @@ class AppState extends ChangeNotifier {
   List<Voucher> vouchers = [];
   RatingSummary rating = const RatingSummary(0, 0);
 
-  // Coins & membership
+  // Coins (reward gratis) dan Membership (produk berbayar) adalah dua sistem yang terpisah.
   LoyaltyInfo loyalty = const LoyaltyInfo();
+  MembershipInfo membership = const MembershipInfo();
+
+  // Garasi kendaraan
+  List<GarageVehicle> garage = [];
 
   // Notifikasi
   List<AppNotification> notifications = [];
@@ -47,7 +52,6 @@ class AppState extends ChangeNotifier {
   String get phone => me?.phone ?? '';
   bool get isAdmin => me?.isAdmin ?? false;
 
-  Tier get tier => loyalty.tier;
   int get unreadCount => notifications.where((n) => !n.read).length;
 
   Future<void> init(Repository r) async {
@@ -71,16 +75,19 @@ class AppState extends ChangeNotifier {
     if (!isAdmin) {
       vouchers = await repo.vouchers();
       loyalty = await repo.loyalty();
+      membership = await repo.membership();
+      garage = await repo.garage();
       await _fetchNotifications();
     }
     notifyListeners();
   }
 
-  /// Memuat ulang Coins dan notifikasi (dipanggil setelah pembayaran, check-in, dan seterusnya).
+  /// Memuat ulang Coins, membership, dan notifikasi (dipanggil setelah pembayaran, check-in, dan seterusnya).
   Future<void> refreshMeta() async {
     if (isAdmin || me == null) return;
     try {
       loyalty = await repo.loyalty();
+      membership = await repo.membership();
       await _fetchNotifications();
     } catch (_) {}
     notifyListeners();
@@ -130,6 +137,8 @@ class AppState extends ChangeNotifier {
     bookings = [];
     vouchers = [];
     loyalty = const LoyaltyInfo();
+    membership = const MembershipInfo();
+    garage = [];
     notifications = [];
     _seenNotifs.clear();
     _notifReady = false;
@@ -292,6 +301,48 @@ class AppState extends ChangeNotifier {
     final r = await repo.claimPromo(id);
     await refreshMeta();
     return r;
+  }
+
+  // ---------- membership (produk berbayar) ----------
+  /// Diskon membership untuk harga jasa layanan. Hanya perkiraan di layar; server menghitung ulang.
+  int memberDiscountFor(int servicePrice) => membership.discountFor(servicePrice);
+
+  Future<MembershipOrder> startMembershipPurchase(MembershipTier t, PayMethod m) async {
+    final o = await repo.startMembershipPurchase(t, m);
+    await refreshMeta();
+    return o;
+  }
+
+  Future<MembershipOrder> membershipOrder(String id) => repo.membershipOrder(id);
+
+  Future<MembershipOrder> confirmMembershipPayment(String id) async {
+    final o = await repo.confirmMembershipPayment(id);
+    await refreshAll();
+    return o;
+  }
+
+  Future<MembershipOrder> simulateMembershipQris(String id) async {
+    final o = await repo.simulateMembershipQris(id);
+    await refreshAll();
+    return o;
+  }
+
+  Future<void> cancelMembershipOrder(String id) async {
+    await repo.cancelMembershipOrder(id);
+    await refreshMeta();
+  }
+
+  // ---------- garasi kendaraan ----------
+  Future<void> saveVehicle(GarageVehicle v) async {
+    await repo.saveVehicle(v);
+    garage = await repo.garage();
+    notifyListeners();
+  }
+
+  Future<void> deleteVehicle(String id) async {
+    await repo.deleteVehicle(id);
+    garage = await repo.garage();
+    notifyListeners();
   }
 
   // ---------- notifikasi ----------

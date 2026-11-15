@@ -112,7 +112,7 @@ class VoucherTicket extends StatelessWidget {
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 Icon(v.locked ? Icons.lock_outline_rounded : Icons.workspace_premium_rounded, size: 16, color: kRed),
                 const SizedBox(width: 5),
-                Text(v.locked ? 'Terkunci • khusus member ${v.tierLabel}' : 'Reward member ${v.tierLabel}',
+                Text(v.locked ? 'Terkunci • khusus member ${v.tierLabel} (beli membership)' : 'Reward member ${v.tierLabel}',
                     style: const TextStyle(color: kRed, fontWeight: FontWeight.w800, fontSize: 12.5)),
               ]),
             ),
@@ -172,7 +172,7 @@ class _VoucherClaimScreenState extends State<VoucherClaimScreen> {
       appBar: AppBar(title: const Text('Klaim Voucher')),
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
+          constraints: const BoxConstraints(maxWidth: 640),
           child: ListView(padding: const EdgeInsets.all(20), children: [
             const SizedBox(height: 8),
             Center(
@@ -225,14 +225,12 @@ class MyVouchersScreen extends StatelessWidget {
         appBar: AppBar(title: const Text('Voucher Saya')),
         body: ListenableBuilder(
           listenable: app,
-          builder: (context, _) => Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: ListView(padding: const EdgeInsets.all(16), children: [
+          builder: (context, _) => PageList(
+            top: 16,
+            children: [
+              AutoGrid(minWidth: 420, gap: 14, children: [
                 for (final v in app.vouchers)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 14),
-                    child: Column(children: [
+                  Column(children: [
                       VoucherTicket(v),
                       const SizedBox(height: 8),
                       Row(children: [
@@ -259,9 +257,8 @@ class MyVouchersScreen extends StatelessWidget {
                           ),
                       ]),
                     ]),
-                  ),
               ]),
-            ),
+            ],
           ),
         ),
       );

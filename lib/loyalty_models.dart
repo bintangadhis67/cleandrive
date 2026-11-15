@@ -1,13 +1,34 @@
 import 'package:flutter/material.dart';
 
 // ---------------------------------------------------------------------------
-// Aturan Coins & Membership. Semua angka ada di sini supaya mudah diubah.
+// CLEANDRIVE COINS: sistem reward GRATIS dari aktivitas.
+// Semua angka ada di sini supaya mudah diubah.
+//
+// ATURAN:
+// - Coins TIDAK menentukan level membership (membership adalah produk berbayar, lihat membership_models.dart).
+// - Coins BISA dipakai sebagai potongan saat membayar pesanan layanan dan pembelian toko.
+// - Coins TIDAK bisa dipakai untuk membeli membership.
 // ---------------------------------------------------------------------------
 
-/// 1 Coin = Rp 100 potongan harga saat pembayaran.
-const kCoinValue = 100;
+/// 1 Coin = Rp 25 potongan harga saat pembayaran.
+const kCoinValue = 25;
 
-/// Coins check-in harian untuk hari ke-1 sampai ke-7 (lalu mengulang).
+/// Coins ditukar dalam kelipatan ini, dan maksimal persen dari total yang boleh dipotong.
+const kCoinStep = 10;
+const kCoinRedeemCapPct = 50;
+
+/// Catatan yang ditampilkan di layar Coins dan pembayaran.
+const kCoinsUsageNote =
+    'Coins bisa dipakai sebagai potongan saat membayar pesanan dan pembelian toko (1 Coin = Rp $kCoinValue, maksimal $kCoinRedeemCapPct% dari total). Tidak berlaku untuk membeli membership.';
+
+/// Coins maksimal yang boleh ditukar pada satu pembayaran (kelipatan [kCoinStep]).
+int maxRedeemCoins({required int total, required int balance}) {
+  final byCap = total * kCoinRedeemCapPct ~/ 100 ~/ kCoinValue;
+  final c = balance < byCap ? balance : byCap;
+  return c ~/ kCoinStep * kCoinStep;
+}
+
+/// Coins check-in harian untuk hari ke-1 sampai ke-7 (lalu mengulang). Hari ke-7 = bonus streak.
 const kCheckInRewards = [5, 5, 10, 10, 15, 15, 30];
 
 /// Coins dari ulasan (ditambah bonus bila menulis komentar).
@@ -32,43 +53,6 @@ enum PayBand {
 PayBand payBandFor(int amount) =>
     amount >= kBandHigh ? PayBand.high : (amount >= kBandMid ? PayBand.mid : PayBand.low);
 
-/// Level membership. Naik level berdasarkan total Coins yang pernah didapat
-/// (Coins yang dipakai untuk potongan tidak menurunkan level).
-enum Tier {
-  bronze('Bronze', 0, 0, 30, Color(0xFFB0703A), Color(0xFFF1DCC6), 'Akses voucher umum dan promo Coins'),
-  silver('Silver', 300, 10, 40, Color(0xFF7D8AA3), Color(0xFFE3E8F0), 'Voucher eksklusif: diskon Rp 15.000'),
-  gold('Gold', 1000, 20, 50, Color(0xFFD99A00), Color(0xFFFBE7A6), 'Voucher eksklusif: diskon 20% (maks. Rp 40.000)'),
-  platinum('Platinum', 2500, 30, 60, Color(0xFF4A5B7D), Color(0xFFDCE4F2), 'Voucher eksklusif: diskon Rp 50.000');
-
-  const Tier(this.label, this.minCoins, this.bonusPct, this.redeemCapPct, this.color, this.soft, this.reward);
-  final String label, reward;
-  final int minCoins, bonusPct, redeemCapPct;
-  final Color color, soft;
-
-  Tier? get next => index + 1 < Tier.values.length ? Tier.values[index + 1] : null;
-  IconData get icon => this == Tier.platinum ? Icons.diamond_rounded : Icons.workspace_premium_rounded;
-
-  List<String> get perks => [
-        bonusPct == 0
-            ? 'Kumpulkan Coins dari check-in, transaksi, dan ulasan'
-            : 'Bonus Coins +$bonusPct% di setiap check-in, transaksi, dan ulasan',
-        'Tukar Coins hingga $redeemCapPct% dari total pembayaran',
-        reward,
-      ];
-}
-
-Tier tierFor(int lifetimeCoins) => Tier.values.lastWhere((t) => lifetimeCoins >= t.minCoins);
-
-/// Coins dasar ditambah bonus level.
-int withTierBonus(int base, Tier t) => base + base * t.bonusPct ~/ 100;
-
-/// Coins maksimal yang boleh ditukar pada satu pembayaran (kelipatan 10).
-int maxRedeemCoins({required int total, required int balance, required Tier tier}) {
-  final byCap = total * tier.redeemCapPct ~/ 100 ~/ kCoinValue;
-  final c = balance < byCap ? balance : byCap;
-  return c ~/ 10 * 10;
-}
-
 enum CoinKind {
   checkin(Icons.event_available_rounded),
   transaction(Icons.receipt_long_rounded),
@@ -84,7 +68,7 @@ enum CoinKind {
 class CoinEntry {
   final String id, title, note;
   final CoinKind kind;
-  final int amount; // positif = dapat, negatif = dipakai
+  final int amount; // positif = dapat, negatif = ditarik kembali
   final DateTime createdAt;
   const CoinEntry({
     required this.id,
@@ -125,9 +109,8 @@ class CoinPromo {
 /// Hasil check-in / klaim promo.
 class CoinAward {
   final int coins, streak;
-  final Tier? levelUp;
   final String title;
-  const CoinAward(this.coins, this.streak, this.levelUp, this.title);
+  const CoinAward(this.coins, this.streak, this.title);
 }
 
 class LoyaltyInfo {
@@ -144,16 +127,11 @@ class LoyaltyInfo {
     this.promos = const [],
   });
 
-  Tier get tier => tierFor(lifetime);
-  Tier? get nextTier => tier.next;
-  int get toNext => nextTier == null ? 0 : nextTier!.minCoins - lifetime;
+  /// Total Coins yang pernah didapat (hanya statistik, tidak menentukan apa pun).
+  int get earned => entries.where((e) => e.amount > 0).fold(0, (s, e) => s + e.amount);
 
-  double get progress {
-    final n = nextTier;
-    if (n == null) return 1;
-    final span = n.minCoins - tier.minCoins;
-    return ((lifetime - tier.minCoins) / span).clamp(0.0, 1.0).toDouble();
-  }
+  List<CoinEntry> get gains => entries.where((e) => e.amount > 0).toList();
+  List<CoinEntry> get usage => entries.where((e) => e.amount < 0).toList();
 
   static bool _same(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
 
@@ -178,8 +156,8 @@ class LoyaltyInfo {
   /// Indeks (0-6) tile "hari ini" pada kalender check-in.
   int get todayIndex => checkedInToday ? doneDays - 1 : doneDays;
 
-  /// Coins check-in untuk hari ke-[dayIndex]+1, sudah termasuk bonus level.
-  int rewardFor(int dayIndex) => withTierBonus(kCheckInRewards[dayIndex], tier);
+  /// Coins check-in untuk hari ke-[dayIndex]+1.
+  int rewardFor(int dayIndex) => kCheckInRewards[dayIndex];
 
   factory LoyaltyInfo.fromJson(Map<String, dynamic> j) => LoyaltyInfo(
         balance: (j['balance'] as num).toInt(),

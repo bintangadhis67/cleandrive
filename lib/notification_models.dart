@@ -7,6 +7,7 @@ enum NotifType {
   payment(Icons.verified_rounded, kGreen),
   points(Icons.monetization_on_rounded, Color(0xFFD08A00)),
   voucher(Icons.local_offer_rounded, kRed),
+  membership(Icons.workspace_premium_rounded, Color(0xFFC98F12)),
   promo(Icons.campaign_rounded, Color(0xFF8E44AD)),
   reminder(Icons.alarm_rounded, Color(0xFF0E8FA3));
 
@@ -16,8 +17,8 @@ enum NotifType {
 }
 
 /// Notifikasi dalam aplikasi.
-/// [target] menentukan layar tujuan saat diketuk: `order:<id>`, `vouchers`, `loyalty`, `shop`.
-/// [push] = true untuk kejadian dari sisi layanan (status cucian, pengingat, naik level),
+/// [target] menentukan layar tujuan saat diketuk: `order:<id>`, `vouchers`, `loyalty` (Coins), `membership`, `shop`.
+/// [push] = true untuk kejadian dari sisi layanan (status cucian, pengingat, status membership),
 /// yang juga ditampilkan sebagai banner. Konfirmasi atas aksi pengguna sendiri tidak ditampilkan sebagai banner.
 class AppNotification {
   final String id, title, body;

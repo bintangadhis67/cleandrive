@@ -72,7 +72,10 @@ class _QtyControl extends StatelessWidget {
 // ---------- TOKO ----------
 class ShopScreen extends StatefulWidget {
   final ProductCategory initial;
-  const ShopScreen({super.key, this.initial = ProductCategory.makanan});
+
+  /// true = ditampilkan sebagai tab Toko (tanpa tombol kembali).
+  final bool embedded;
+  const ShopScreen({super.key, this.initial = ProductCategory.makanan, this.embedded = false});
   @override
   State<ShopScreen> createState() => _ShopScreenState();
 }
@@ -134,13 +137,13 @@ class _ShopScreenState extends State<ShopScreen> {
             Container(
               height: 132,
               width: double.infinity,
-              color: const Color(0xFFEFF1F5),
+              color: Colors.transparent,
               padding: const EdgeInsets.all(8),
               child: Opacity(opacity: out ? .4 : 1, child: ProductImage(p)),
             ),
             if (p.vehicleTag.isNotEmpty) Positioned(left: 8, top: 8, child: _badge(p.vehicleTag, kNavy)),
-            if (low) Positioned(right: 8, top: 8, child: _badge('Sisa $left', const Color(0xFFD08A00))),
-            if (out) Positioned.fill(child: Center(child: _badge('Stok habis', const Color(0xFFB3261E)))),
+            if (low) Positioned(right: 8, top: 8, child: _badge('Sisa $left', kWarn)),
+            if (out) Positioned.fill(child: Center(child: _badge('Stok habis', kError))),
           ]),
         ),
         Expanded(
@@ -197,7 +200,7 @@ class _ShopScreenState extends State<ShopScreen> {
               top: false,
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 640),
+                  constraints: const BoxConstraints(),
                   child: Row(children: [
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
@@ -224,6 +227,7 @@ class _ShopScreenState extends State<ShopScreen> {
     final list = productsIn(_cat).toList();
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: !widget.embedded,
         title: const Text('Toko CleanDrive'),
         actions: [
           ListenableBuilder(
@@ -249,36 +253,39 @@ class _ShopScreenState extends State<ShopScreen> {
       ),
       body: Column(children: [
         Expanded(
-          child: PageBox(
-            maxWidth: 640,
-            child: Column(children: [
+          child: LayoutBuilder(builder: (context, cons) {
+            final pad = pagePad(cons.maxWidth);
+            return Column(children: [
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                padding: EdgeInsets.fromLTRB(pad, 0, pad, 12),
                 child: Row(children: [for (final c in ProductCategory.values) _chip(c)]),
               ),
               Expanded(
                 child: ListenableBuilder(
                   listenable: app,
-                  builder: (context, _) => ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), children: [
+                  builder: (context, _) => ListView(padding: EdgeInsets.fromLTRB(pad, 0, pad, 16), children: [
                     if (_cat == ProductCategory.oli) _oilBanner(),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: list.length,
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        mainAxisSpacing: 12,
-                        crossAxisSpacing: 12,
-                        mainAxisExtent: 280,
+                    if (list.isEmpty)
+                      const EmptyState(icon: Icons.search_off_rounded, title: 'Produk tidak ditemukan', message: 'Coba kata kunci lain.')
+                    else
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: list.length,
+                        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 240,
+                          mainAxisSpacing: 12,
+                          crossAxisSpacing: 12,
+                          mainAxisExtent: 280,
+                        ),
+                        itemBuilder: (_, i) => _card(list[i]),
                       ),
-                      itemBuilder: (_, i) => _card(list[i]),
-                    ),
                   ]),
                 ),
               ),
-            ]),
-          ),
+            ]);
+          }),
         ),
         _cartBar(),
       ]),
@@ -298,7 +305,7 @@ class CartScreen extends StatelessWidget {
             Container(
               width: 62,
               height: 62,
-              decoration: BoxDecoration(color: const Color(0xFFEFF1F5), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: Colors.transparent, borderRadius: BorderRadius.circular(12)),
               padding: const EdgeInsets.all(4),
               child: ProductImage(p),
             ),
@@ -336,12 +343,13 @@ class CartScreen extends StatelessWidget {
                 ),
               );
             }
+            // Selebar layar penuh: PageList dan bilah bawah memusatkan isinya sendiri lewat pagePad.
             return PageBox(
-              maxWidth: 520,
+              maxWidth: double.infinity,
               child: Column(children: [
                 Expanded(
-                  child: ListView(padding: const EdgeInsets.all(16), children: [
-                    for (final l in app.cart) _line(l.product, l.qty),
+                  child: PageList(top: 16, children: [
+                    AutoGrid(minWidth: 440, gap: 0, children: [for (final l in app.cart) _line(l.product, l.qty)]),
                     const SizedBox(height: 4),
                     const Row(children: [
                       Icon(Icons.storefront_outlined, size: 16, color: kMuted),
@@ -354,7 +362,7 @@ class CartScreen extends StatelessWidget {
                   ]),
                 ),
                 Container(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  padding: EdgeInsets.fromLTRB(pagePad(MediaQuery.sizeOf(context).width), 12, pagePad(MediaQuery.sizeOf(context).width), 12),
                   decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: kLine))),
                   child: SafeArea(
                     top: false,
@@ -398,7 +406,9 @@ class CartScreen extends StatelessWidget {
 
 // ---------- CUPLIKAN TOKO DI BERANDA ----------
 class ShopHomeSection extends StatelessWidget {
-  const ShopHomeSection({super.key});
+  /// Dipanggil saat "Lihat Semua" ditekan (beranda membukanya sebagai tab Toko).
+  final VoidCallback? onSeeAll;
+  const ShopHomeSection({super.key, this.onSeeAll});
 
   Widget _mini(BuildContext context, Product p) => SizedBox(
         width: 124,
@@ -409,7 +419,7 @@ class ShopHomeSection extends StatelessWidget {
             Container(
               height: 84,
               width: double.infinity,
-              decoration: BoxDecoration(color: const Color(0xFFEFF1F5), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: Colors.transparent, borderRadius: BorderRadius.circular(12)),
               padding: const EdgeInsets.all(4),
               child: ProductImage(p),
             ),
@@ -429,7 +439,7 @@ class ShopHomeSection extends StatelessWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       sec('Toko CleanDrive',
           trailing: TextButton(
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ShopScreen())),
+            onPressed: onSeeAll ?? () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ShopScreen())),
             child: const Text('Lihat Semua'),
           )),
       SizedBox(

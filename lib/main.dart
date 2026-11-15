@@ -102,6 +102,8 @@ class SplashScreen extends StatelessWidget {
               textAlign: TextAlign.center,
               style: GoogleFonts.orbitron(color: kCream, fontSize: 12, letterSpacing: 3, fontWeight: FontWeight.w600)),
           const SizedBox(height: 36),
+          const Text('Memeriksa akun...', style: TextStyle(color: Colors.white54, fontSize: 12)),
+          const SizedBox(height: 10),
           SizedBox(
             width: 150,
             child: TweenAnimationBuilder<double>(

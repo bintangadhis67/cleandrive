@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'app_state.dart';
 import 'loyalty.dart';
+import 'membership.dart';
 import 'notification_models.dart';
 import 'orders.dart';
 import 'shop.dart';
@@ -18,10 +19,12 @@ void openNotification(BuildContext context, AppNotification n) {
       : t == 'vouchers'
           ? const MyVouchersScreen()
           : t == 'loyalty'
-              ? const LoyaltyScreen()
-              : t == 'shop'
-                  ? const ShopScreen()
-                  : null;
+              ? const CoinsScreen()
+              : t == 'membership'
+                  ? const MembershipScreen()
+                  : t == 'shop'
+                      ? const ShopScreen()
+                      : null;
   if (page != null) Navigator.push(context, MaterialPageRoute(builder: (_) => page));
 }
 
@@ -93,8 +96,8 @@ class NotificationScreen extends StatefulWidget {
 }
 
 class _NotificationScreenState extends State<NotificationScreen> {
-  int _filter = 0; // 0 semua, 1 pesanan, 2 coins & promo
-  static const _labels = ['Semua', 'Pesanan', 'Coins & Promo'];
+  int _filter = 0;
+  static const _labels = ['Semua', 'Pesanan', 'Pembayaran', 'Voucher', 'Coins & Promo', 'Membership'];
 
   @override
   void initState() {
@@ -103,30 +106,15 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   bool _match(AppNotification n) => switch (_filter) {
-        1 => n.type == NotifType.order || n.type == NotifType.payment || n.type == NotifType.reminder,
-        2 => n.type == NotifType.points || n.type == NotifType.voucher || n.type == NotifType.promo,
+        1 => n.type == NotifType.order || n.type == NotifType.reminder,
+        2 => n.type == NotifType.payment,
+        3 => n.type == NotifType.voucher,
+        4 => n.type == NotifType.points || n.type == NotifType.promo,
+        5 => n.type == NotifType.membership,
         _ => true,
       };
 
-  Widget _pill(int i) {
-    final sel = _filter == i;
-    return Padding(
-      padding: const EdgeInsets.only(right: 10),
-      child: GestureDetector(
-        onTap: () => setState(() => _filter = i),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: sel ? kRed : Colors.white,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: sel ? kRed : kLine),
-          ),
-          child: Text(_labels[i], style: TextStyle(fontWeight: FontWeight.w700, color: sel ? Colors.white : kNavy, fontSize: 13)),
-        ),
-      ),
-    );
-  }
+  Widget _pill(int i) => FilterPill(label: _labels[i], selected: _filter == i, onTap: () => setState(() => _filter = i));
 
   Widget _tile(AppNotification n) => Dismissible(
         key: ValueKey(n.id),
@@ -136,7 +124,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
           alignment: Alignment.centerRight,
           padding: const EdgeInsets.only(right: 20),
           margin: const EdgeInsets.only(bottom: 10),
-          decoration: BoxDecoration(color: const Color(0xFFB3261E), borderRadius: BorderRadius.circular(20)),
+          decoration: BoxDecoration(color: kError, borderRadius: BorderRadius.circular(20)),
           child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
         ),
         child: Padding(
@@ -204,32 +192,33 @@ class _NotificationScreenState extends State<NotificationScreen> {
               }
               children.add(_tile(n));
             }
-            return Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: Column(children: [
+            return LayoutBuilder(builder: (context, cons) {
+              final pad = pagePad(cons.maxWidth);
+              return Column(children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                    child: Row(children: [for (var i = 0; i < _labels.length; i++) _pill(i)]),
+                    padding: EdgeInsets.fromLTRB(pad, 4, pad, 8),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(children: [for (var i = 0; i < _labels.length; i++) _pill(i)]),
+                    ),
                   ),
                   Expanded(
                     child: RefreshIndicator(
                       color: kRed,
                       onRefresh: app.refreshNotifications,
                       child: list.isEmpty
-                          ? ListView(children: const [
-                              SizedBox(height: 90),
-                              Icon(Icons.notifications_off_outlined, size: 52, color: kMuted),
-                              SizedBox(height: 10),
-                              Center(child: Text('Belum ada notifikasi', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
-                              Center(child: Text('Info pesanan, Coins, dan promo muncul di sini.', style: TextStyle(color: kMuted))),
+                          ? ListView(padding: EdgeInsets.fromLTRB(pad, 40, pad, 24), children: const [
+                              EmptyState(
+                                icon: Icons.notifications_off_outlined,
+                                title: 'Belum ada notifikasi',
+                                message: 'Info pesanan, pembayaran, Coins, membership, dan promo muncul di sini.',
+                              ),
                             ])
-                          : ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 24), children: children),
+                          : ListView(padding: EdgeInsets.fromLTRB(pad, 0, pad, 24), children: children),
                     ),
                   ),
-                ]),
-              ),
-            );
+                ]);
+            });
           },
         ),
       );

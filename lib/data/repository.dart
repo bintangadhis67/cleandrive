@@ -1,4 +1,5 @@
 import '../loyalty_models.dart';
+import '../membership_models.dart';
 import '../models.dart';
 import '../notification_models.dart';
 
@@ -85,7 +86,8 @@ abstract class Repository {
   Future<List<Voucher>> vouchers();
   Future<Voucher> claimVoucher(String id);
 
-  /// [coins] = jumlah Coins yang ditukar jadi potongan (kelipatan 10). Coins baru dipotong saat pembayaran berhasil.
+  /// [coins] = Coins yang ditukar jadi potongan (kelipatan 10, maks 50% total). Server memvalidasi dan
+  /// menghitung total sendiri. Coins baru dipotong saat pembayaran berhasil.
   Future<Payment> startPayment(String bookingId, PayMethod method, {int coins = 0});
   Future<Payment> payment(String id);
   Future<Payment> confirmPayment(String id); // e-wallet
@@ -94,10 +96,23 @@ abstract class Repository {
   Future<Booking> submitReview(String bookingId, int rating, String comment);
   Future<RatingSummary> ratingSummary();
 
-  // coins & membership
+  // coins (reward gratis)
   Future<LoyaltyInfo> loyalty();
   Future<CoinAward> checkIn();
   Future<CoinAward> claimPromo(String id);
+
+  // membership (produk berbayar, siklus pembayaran sendiri, terpisah dari Coins)
+  Future<MembershipInfo> membership();
+  Future<MembershipOrder> startMembershipPurchase(MembershipTier tier, PayMethod method);
+  Future<MembershipOrder> membershipOrder(String id);
+  Future<MembershipOrder> confirmMembershipPayment(String id); // e-wallet
+  Future<MembershipOrder> simulateMembershipQris(String id); // hanya mode sandbox
+  Future<void> cancelMembershipOrder(String id);
+
+  // garasi kendaraan
+  Future<List<GarageVehicle>> garage();
+  Future<GarageVehicle> saveVehicle(GarageVehicle v); // id kosong = tambah baru
+  Future<void> deleteVehicle(String id);
 
   // notifikasi
   Future<List<AppNotification>> notifications();

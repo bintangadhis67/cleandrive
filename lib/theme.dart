@@ -1,21 +1,44 @@
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Palet CleanDrive: Navy, Cream, Red Metal (sesuai desain).
-const kNavy = Color(0xFF0B1F44);
-const kNavyDark = Color(0xFF071430);
-const kNavySoft = Color(0xFF132A57);
-const kNavyLight = Color(0xFF1B3A73);
-const kCream = Color(0xFFF4E8D6);
-const kRed = Color(0xFFB61E1E);
-const kSky = Color(0xFF60BBE9);
-const kGold = Color(0xFFF5B31B);
-const kGreen = Color(0xFF2E9E5B);
+// ---------------------------------------------------------------------------
+// DESIGN TOKENS CleanDrive
+// Semua warna, radius, jarak, dan bayangan dipusatkan di sini supaya konsisten.
+// ---------------------------------------------------------------------------
 
-// Permukaan terang (desain baru)
-const kBg = Color(0xFFF6F7FB);
-const kMuted = Color(0xFF6A7691);
-const kLine = Color(0x1F0B1F44);
+// Warna utama
+const kNavy = Color(0xFF10264C); // Primary Navy (identitas utama)
+const kCream = Color(0xFFF7F1E7); // Secondary Cream
+const kRed = Color(0xFFC62026); // Accent Metal Red (tombol utama, selected state)
+
+// Turunan navy untuk kartu gelap
+const kNavyDark = Color(0xFF0A1A38);
+const kNavySoft = Color(0xFF163058);
+const kNavyLight = Color(0xFF1E3F77);
+
+// Warna pendukung
+const kBg = Color(0xFFF5F6FA); // Background
+const kText = Color(0xFF152747); // Text Primary
+const kMuted = Color(0xFF7B879B); // Text Secondary
+const kGold = Color(0xFFE9AD35); // Hanya untuk Coins dan elemen reward
+const kGreen = Color(0xFF249B62); // Success
+const kWarn = Color(0xFFE9A23B); // Warning
+const kError = Color(0xFFD92D35); // Error
+const kSky = Color(0xFF60BBE9);
+const kLine = Color(0x1F10264C); // Border tipis
+const kLineSoft = Color(0x0D10264C); // Border sangat halus untuk kartu
+
+// Radius
+const kRadiusCard = 26.0; // kartu lebih membulat (gaya Gen-Z)
+const kRadiusButton = 18.0; // tombol
+const kRadiusChip = 22.0;
+
+// Spasi
+const kSpace = 8.0;
+
+// Bayangan lembut
+const kShadowSoft = [BoxShadow(color: Color(0x1410264C), blurRadius: 26, offset: Offset(0, 12))];
 
 ThemeData buildTheme() {
   const scheme = ColorScheme.light(
@@ -24,21 +47,31 @@ ThemeData buildTheme() {
     secondary: kNavy,
     onSecondary: Colors.white,
     surface: Colors.white,
-    onSurface: kNavy,
-    error: Color(0xFFD64545),
-    outline: Color(0x330B1F44),
+    onSurface: kText,
+    error: kError,
+    outline: Color(0x3310264C),
     outlineVariant: kLine,
   );
   final base = ThemeData(brightness: Brightness.light).textTheme;
-  final tt = GoogleFonts.plusJakartaSansTextTheme(base).apply(bodyColor: kNavy, displayColor: kNavy);
+  // Plus Jakarta Sans: Bold untuk heading, SemiBold judul kartu, Medium tombol/navigasi, Regular deskripsi.
+  final tt = GoogleFonts.plusJakartaSansTextTheme(base).apply(bodyColor: kText, displayColor: kText);
   OutlineInputBorder b(Color c, [double w = 1]) =>
-      OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: c, width: w));
+      OutlineInputBorder(borderRadius: BorderRadius.circular(kRadiusButton), borderSide: BorderSide(color: c, width: w));
 
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
     scaffoldBackgroundColor: kBg,
     textTheme: tt,
+    // Transisi halaman yang halus di semua platform.
+    pageTransitionsTheme: const PageTransitionsTheme(builders: {
+      TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+      TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+      TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+      TargetPlatform.fuchsia: FadeUpwardsPageTransitionsBuilder(),
+    }),
     appBarTheme: AppBarTheme(
       backgroundColor: kBg,
       foregroundColor: kNavy,
@@ -46,19 +79,28 @@ ThemeData buildTheme() {
       scrolledUnderElevation: 0,
       surfaceTintColor: Colors.transparent,
       centerTitle: true,
-      titleTextStyle: tt.titleMedium?.copyWith(fontWeight: FontWeight.w800, color: kNavy, fontSize: 17),
+      titleTextStyle: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700, color: kNavy, fontSize: 17),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         backgroundColor: kRed,
         foregroundColor: Colors.white,
         minimumSize: const Size(0, 52),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kRadiusButton)),
+        textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: kNavy,
+        minimumSize: const Size(0, 48),
+        side: const BorderSide(color: kLine),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kRadiusButton)),
+        textStyle: const TextStyle(fontWeight: FontWeight.w600),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
-      style: TextButton.styleFrom(foregroundColor: kNavy, textStyle: const TextStyle(fontWeight: FontWeight.w700)),
+      style: TextButton.styleFrom(foregroundColor: kNavy, textStyle: const TextStyle(fontWeight: FontWeight.w600)),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
@@ -67,13 +109,24 @@ ThemeData buildTheme() {
       border: b(kLine),
       enabledBorder: b(kLine),
       focusedBorder: b(kRed, 2),
-      errorBorder: b(const Color(0xFFD64545)),
-      focusedErrorBorder: b(const Color(0xFFD64545), 2),
+      errorBorder: b(kError),
+      focusedErrorBorder: b(kError, 2),
     ),
-    snackBarTheme: const SnackBarThemeData(
+    snackBarTheme: SnackBarThemeData(
       backgroundColor: kNavy,
       behavior: SnackBarBehavior.floating,
-      contentTextStyle: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kRadiusButton)),
+      contentTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kRadiusCard)),
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(kRadiusCard))),
     ),
     dividerColor: kLine,
   );

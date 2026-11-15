@@ -4,7 +4,7 @@ import 'app_state.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
-const _soft = Color(0xB3F4E8D6); // krem pudar untuk teks pendukung di atas foto
+const _soft = Color(0xB3F7F1E7); // krem pudar untuk teks pendukung di atas foto
 
 // ---------- LOGIN / REGISTER ----------
 // Halaman perkenalan (onboarding) sudah dihapus. Login/Daftar memakai background foto.
@@ -17,6 +17,8 @@ class AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<AuthScreen> {
   final _key = GlobalKey<FormState>();
   final _name = TextEditingController(), _email = TextEditingController(), _pass = TextEditingController();
+  final _phone = TextEditingController(), _confirm = TextEditingController();
+  bool _agree = false;
   bool _register = false;
   bool _hidePass = true;
   bool _busy = false;
@@ -26,6 +28,8 @@ class _AuthScreenState extends State<AuthScreen> {
     _name.dispose();
     _email.dispose();
     _pass.dispose();
+    _phone.dispose();
+    _confirm.dispose();
     super.dispose();
   }
 
@@ -40,9 +44,13 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Future<void> _submit() async {
     if (!_key.currentState!.validate()) return;
+    if (_register && !_agree) {
+      toast(context, 'Setujui syarat dan ketentuan untuk mendaftar.', error: true);
+      return;
+    }
     setState(() => _busy = true);
     await guard(context, () => _register
-        ? app.register(_name.text.trim(), _email.text.trim(), '', _pass.text)
+        ? app.register(_name.text.trim(), _email.text.trim(), _phone.text.trim(), _pass.text)
         : app.login(_email.text.trim(), _pass.text));
     if (mounted) setState(() => _busy = false);
   }
@@ -136,6 +144,21 @@ class _AuthScreenState extends State<AuthScreen> {
             keyboardType: TextInputType.emailAddress,
             decoration: const InputDecoration(hintText: 'Masukkan email'),
           ),
+          if (_register) ...[
+            _label('Nomor HP'),
+            TextFormField(
+              style: const TextStyle(color: Colors.white),
+              controller: _phone,
+              keyboardType: TextInputType.phone,
+              validator: (v) {
+                final t = (v ?? '').trim();
+                if (t.isEmpty) return 'Wajib diisi';
+                if (!RegExp(r'^(\+62|62|0)8[0-9]{7,12}$').hasMatch(t)) return 'Nomor HP tidak valid';
+                return null;
+              },
+              decoration: const InputDecoration(hintText: 'mis. 081234567890'),
+            ),
+          ],
           _label('Password'),
           TextFormField(
             style: const TextStyle(color: Colors.white),
@@ -151,6 +174,31 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
             ),
           ),
+          if (_register) ...[
+            _label('Konfirmasi Password'),
+            TextFormField(
+              style: const TextStyle(color: Colors.white),
+              controller: _confirm,
+              obscureText: _hidePass,
+              validator: (v) => v != _pass.text ? 'Konfirmasi password tidak sama' : null,
+              decoration: const InputDecoration(hintText: 'Ulangi password'),
+            ),
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: () => setState(() => _agree = !_agree),
+              child: Row(children: [
+                Checkbox(
+                  value: _agree,
+                  activeColor: kRed,
+                  side: const BorderSide(color: Colors.white70),
+                  onChanged: (v) => setState(() => _agree = v ?? false),
+                ),
+                const Expanded(
+                  child: Text('Saya menyetujui syarat dan ketentuan CleanDrive', style: TextStyle(color: _soft, fontSize: 12.5)),
+                ),
+              ]),
+            ),
+          ],
           if (!_register)
             Align(
               alignment: Alignment.centerRight,
@@ -160,7 +208,7 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
             )
           else
-            const SizedBox(height: 14),
+            const SizedBox(height: 6),
           RedButton(_register ? 'Daftar' : 'Masuk', busy: _busy, onPressed: _submit),
           if (!_register) ...[
             const SizedBox(height: 18),
