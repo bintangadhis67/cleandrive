@@ -1,10 +1,10 @@
 import 'package:intl/intl.dart';
 
-import '../catalog.dart';
-import '../loyalty_models.dart';
-import '../membership_models.dart';
-import '../models.dart';
-import '../notification_models.dart';
+import '../models/catalog.dart';
+import '../models/loyalty_models.dart';
+import '../models/membership_models.dart';
+import '../models/models.dart';
+import '../models/notification_models.dart';
 import 'repository.dart';
 
 class _MockUser {
@@ -20,9 +20,10 @@ class _Tpl {
   final String id, code, title;
   final int amount, percent, maxDiscount, minTransaction, validDays, minTier;
   final List<String> terms;
+  final bool weekly; // true = diperbarui tiap minggu, false = sekali per akun
   const _Tpl(this.id, this.code, this.title, this.amount, this.percent, this.maxDiscount, this.minTransaction,
       this.validDays, this.terms,
-      {this.minTier = 0});
+      {this.minTier = 0, this.weekly = false});
 }
 
 /// Dompet Coins satu pengguna.
@@ -37,9 +38,15 @@ class _Wallet {
 class _MemberRec {
   final String id;
   final MembershipTier tier;
-  final DateTime start, end;
+  final DateTime start;
+  DateTime end;
   final bool cancelled;
-  const _MemberRec(this.id, this.tier, this.start, this.end, {this.cancelled = false});
+  final int period; // nomor periode langganan (berganti saat beli baru / ganti paket, tetap saat perpanjang)
+  bool cancelAtEnd = false; // langganan dibatalkan: aktif sampai [end], tidak diperpanjang
+  int freeTotal; // total jatah cuci gratis
+  int freeUsed = 0;
+  final Set<String> freeWeeks = {}; // minggu yang jatahnya sudah dipakai
+  _MemberRec(this.id, this.tier, this.start, this.end, {this.cancelled = false, required this.period, this.freeTotal = 0});
 }
 
 /// Data tiruan di memori supaya UI bisa dijalankan tanpa backend.
@@ -54,26 +61,31 @@ class MockRepository implements Repository {
     PayMethod.livin: 3000000,
   };
 
+  /// Aturan voucher:
+  /// - Klaim dibatasi 1 voucher per hari (Gold 2x, Platinum 3x), semua voucher dihitung bersama.
+  /// - VOUCHER-20K dan WELCOME-10K: hanya 1 kali per akun.
+  /// - HEMAT10 dan voucher membership: diperbarui tiap minggu (Senin), bisa diklaim lagi minggu depan.
   static const _tpls = [
     _Tpl('v1', 'VOUCHER-20K', 'Voucher Spesial', 20000, 0, 0, 75000, 30,
-        ['Berlaku untuk semua paket', 'Tidak dapat digabung dengan promo lain', 'Berlaku 1 kali per akun']),
-    _Tpl('v2', 'HEMAT10', 'Hemat 10%', 0, 10, 15000, 50000, 14,
-        ['Potongan 10% maksimal Rp 15.000', 'Berlaku untuk semua paket', 'Berlaku 1 kali per akun']),
+        ['Berlaku untuk semua paket', 'Tidak dapat digabung dengan promo lain', 'Hanya 1 kali per akun (klaim dan pakai)']),
+    _Tpl('v2', 'HEMAT10', 'Hemat 10%', 0, 10, 15000, 50000, 7,
+        ['Potongan 10% maksimal Rp 15.000', 'Berlaku untuk semua paket', 'Diperbarui tiap Senin, bisa diklaim lagi minggu depan'],
+        weekly: true),
     _Tpl('v3', 'WELCOME-10K', 'Selamat Datang', 10000, 0, 0, 40000, 60,
-        ['Khusus pengguna baru', 'Berlaku untuk semua paket', 'Berlaku 1 kali per akun']),
-    // Voucher eksklusif membership BERBAYAR (bukan dari Coins). minTier: 1 Bronze, 2 Silver, 3 Gold, 4 Platinum.
-    _Tpl('v7', 'BRONZE-5K', 'Reward Bronze', 5000, 0, 0, 30000, 30,
-        ['Khusus member Bronze ke atas', 'Berlaku untuk cuci, ganti oli, dan toko', 'Berlaku 1 kali per akun'],
-        minTier: 1),
-    _Tpl('v4', 'SILVER-15K', 'Reward Silver', 15000, 0, 0, 60000, 45,
-        ['Khusus member Silver ke atas', 'Berlaku untuk cuci, ganti oli, dan toko', 'Berlaku 1 kali per akun'],
-        minTier: 2),
-    _Tpl('v5', 'GOLD-20', 'Reward Gold', 0, 20, 40000, 75000, 45,
-        ['Khusus member Gold ke atas', 'Potongan 20% maksimal Rp 40.000', 'Berlaku 1 kali per akun'],
-        minTier: 3),
-    _Tpl('v6', 'PLATINUM-50K', 'Reward Platinum', 50000, 0, 0, 150000, 60,
-        ['Khusus member Platinum', 'Berlaku untuk cuci, ganti oli, dan toko', 'Berlaku 1 kali per akun'],
-        minTier: 4),
+        ['Khusus pengguna baru', 'Berlaku untuk semua paket', 'Hanya 1 kali per akun (klaim dan pakai)']),
+    // Voucher eksklusif membership BERBAYAR (bukan dari Coins), diperbarui tiap minggu. minTier: 1 Bronze, 2 Silver, 3 Gold, 4 Platinum.
+    _Tpl('v7', 'BRONZE-5K', 'Reward Bronze', 5000, 0, 0, 30000, 7,
+        ['Khusus member Bronze ke atas', 'Berlaku untuk cuci, ganti oli, dan toko', 'Diperbarui tiap Senin selama membership aktif'],
+        minTier: 1, weekly: true),
+    _Tpl('v4', 'SILVER-10K', 'Reward Silver', 10000, 0, 0, 60000, 7,
+        ['Khusus member Silver ke atas', 'Berlaku untuk cuci, ganti oli, dan toko', 'Diperbarui tiap Senin selama membership aktif'],
+        minTier: 2, weekly: true),
+    _Tpl('v5', 'GOLD-20', 'Reward Gold', 0, 20, 30000, 75000, 7,
+        ['Khusus member Gold ke atas', 'Potongan 20% maksimal Rp 30.000', 'Diperbarui tiap Senin selama membership aktif'],
+        minTier: 3, weekly: true),
+    _Tpl('v6', 'PLATINUM-50K', 'Reward Platinum', 50000, 0, 0, 150000, 7,
+        ['Khusus member Platinum', 'Berlaku untuk cuci, ganti oli, dan toko', 'Diperbarui tiap Senin selama membership aktif'],
+        minTier: 4, weekly: true),
   ];
 
   /// Promo Coins sekali klaim: (id, judul, deskripsi, coins)
@@ -101,7 +113,12 @@ class MockRepository implements Repository {
   final Map<String, DateTime> _created = {}; // bookingId -> waktu pesanan dibuat
   final Map<String, DateTime> _verifiedAt = {}; // bookingId -> waktu tiket diverifikasi
   final Map<String, DateTime> _cancelledAt = {}; // bookingId -> waktu pesanan dibatalkan
-  int _bookingSeq = 0, _paySeq = 0, _coinSeq = 0, _notifSeq = 0, _memSeq = 0, _garageSeq = 0;
+  int _bookingSeq = 0, _paySeq = 0, _coinSeq = 0, _notifSeq = 0, _memSeq = 0, _garageSeq = 0, _memberPeriod = 0;
+
+  // Voucher: log waktu klaim (untuk kuota harian), kunci klaim yang dipakai tiap pesanan, dan jatah cuci gratis tiap pesanan.
+  final Map<String, List<DateTime>> _claimLog = {}; // email -> waktu klaim voucher
+  final Map<String, String> _bookingClaimKey = {}; // bookingId -> kunci klaim voucher yang dipakai
+  final Map<String, String> _freeRec = {}; // bookingId -> "periode|kunciMinggu" jatah cuci gratis yang dipakai
 
   // Membership: data dan transaksi terpisah dari Coins.
   final Map<String, _MemberRec> _members = {}; // email -> langganan terakhir
@@ -196,8 +213,8 @@ class MockRepository implements Repository {
       b.review = Review(r.$6, r.$7, slot.add(const Duration(hours: 3)));
 
       final band = payBandFor(b.total);
-      b.coinsEarned = band.coins;
-      _seedCoins(email, CoinKind.transaction, 'Transaksi ${b.code}', band.coins, b.estFinish, note: 'Tingkat ${band.label}');
+      b.coinsEarned = coinsForPayment(shop: false, paid: b.total);
+      _seedCoins(email, CoinKind.transaction, 'Transaksi ${b.code}', b.coinsEarned, b.estFinish, note: 'Tingkat ${band.label}');
       _seedCoins(email, CoinKind.review, 'Ulasan ${b.code}', kReviewCoins + kReviewCommentBonus, b.review!.createdAt);
       _notify(email, NotifType.order, b.pack.headlines[3], '${b.code} • ${b.pack.title} sudah selesai.',
               target: 'order:${b.id}', push: false, at: b.estFinish)
@@ -345,8 +362,34 @@ class MockRepository implements Repository {
     return m;
   }
 
+  // ---------- aturan klaim voucher ----------
+  /// Kunci klaim: voucher sekali-per-akun = email|id, voucher mingguan = email|id|minggu (otomatis baru tiap Senin).
+  String _claimKey(String email, _Tpl t, [DateTime? at]) =>
+      t.weekly ? '$email|${t.id}|${weekKey(at ?? DateTime.now())}' : '$email|${t.id}';
+
+  int _dailyLimit(String email) {
+    final m = _userMembership(email);
+    return (m != null && m.isActive) ? m.tier.dailyVoucherLimit : kBaseDailyVoucherLimit;
+  }
+
+  VoucherQuota _quota(String email) {
+    final now = DateTime.now();
+    final used = (_claimLog[email] ?? const <DateTime>[])
+        .where((d) => d.year == now.year && d.month == now.month && d.day == now.day)
+        .length;
+    return VoucherQuota(used: used, limit: _dailyLimit(email));
+  }
+
+  String _quotaMessage(VoucherQuota q) =>
+      'Batas klaim voucher hari ini sudah tercapai (${q.used}/${q.limit}). '
+      '${q.limit == 1 ? 'Coba lagi besok. Member Gold bisa klaim 2x sehari, Platinum 3x sehari.' : 'Coba lagi besok.'}';
+
   Voucher _voucher(_Tpl t) {
-    final key = '${_u.email}|${t.id}';
+    final email = _u.email;
+    final key = _claimKey(email, t);
+    final claimed = _claims.containsKey(key);
+    final q = _quota(email);
+    final now = DateTime.now();
     return Voucher(
       id: t.id,
       code: t.code,
@@ -355,11 +398,14 @@ class MockRepository implements Repository {
       percent: t.percent,
       maxDiscount: t.maxDiscount,
       minTransaction: t.minTransaction,
-      validUntil: DateTime.now().add(Duration(days: t.validDays)),
+      // Voucher mingguan berlaku sampai Minggu; yang belum dipakai hangus dan bisa diklaim lagi mulai Senin.
+      validUntil: t.weekly ? endOfWeek(now) : now.add(Duration(days: t.validDays)),
       terms: t.terms,
       minTier: t.minTier,
-      locked: _memberRank(_u.email) < t.minTier,
-      claimed: _claims.containsKey(key),
+      locked: _memberRank(email) < t.minTier,
+      weekly: t.weekly,
+      blockReason: (!claimed && q.reached) ? _quotaMessage(q) : null,
+      claimed: claimed,
       used: (_claims[key] ?? '').isNotEmpty,
     );
   }
@@ -372,6 +418,7 @@ class MockRepository implements Repository {
     required DateTime slot,
     String? voucherCode,
     List<OrderLine> items = const [],
+    bool useFreeWash = false,
   }) async {
     await _lag(400);
     final when = pack.isShop ? DateTime.now() : slot;
@@ -401,6 +448,17 @@ class MockRepository implements Repository {
       if (l.qty > left) throw ApiException('Stok ${l.product.name} tinggal $left.');
     }
 
+    // Cuci gratis membership: validasi di sisi server (paket, kendaraan, kuota, 1x per minggu, masa aktif).
+    if (useFreeWash) {
+      if (voucherCode != null && voucherCode.isNotEmpty) {
+        throw ApiException('Cuci gratis membership tidak bisa digabung dengan voucher.');
+      }
+      final m = _userMembership(_u.email);
+      if (m == null) throw ApiException('Kamu belum punya membership aktif.');
+      final block = m.freeWashBlock(pack, vehicle, slot);
+      if (block != null) throw ApiException(block);
+    }
+
     final price = pack.priceFor(vehicle) + items.fold<int>(0, (s, l) => s + l.subtotal);
     var discount = 0;
     String? code;
@@ -419,28 +477,63 @@ class MockRepository implements Repository {
     final b = _make(_u, vehicle, pack, plate, when, discount, code, items: items);
     // Diskon membership aktif untuk jasa layanan (bukan produk toko). Dihitung di sisi server.
     final mem = _userMembership(_u.email);
-    if (!pack.isShop && mem != null && mem.isActive) {
+    if (useFreeWash && mem != null) {
+      // Cuci gratis: total Rp 0, otomatis lunas, tanpa Coins. Jatah dikurangi dan dikunci untuk minggu jadwal ini.
+      final rec = _members[_u.email]!;
+      rec.freeUsed++;
+      rec.freeWeeks.add(weekKey(slot));
+      _freeRec[b.id] = '${rec.period}|${weekKey(slot)}';
+      b.freeWash = true;
+      b.memberDiscount = b.price;
+      b.memberLabel = 'Cuci Gratis ${rec.tier.label}';
+      b.payStatus = 'paid';
+      b.trx = 'FREE-${DateFormat('yyMMdd').format(DateTime.now())}-${(++_paySeq).toString().padLeft(3, '0')}';
+      b.coinsEarned = 0;
+    } else if (!pack.isShop && mem != null && mem.isActive) {
       var md = mem.plan.discountFor(pack.priceFor(vehicle));
       if (md > price - discount) md = price - discount;
       b.memberDiscount = md;
       b.memberLabel = '${mem.plan.name} ${mem.plan.discountPct}%';
     }
+    // Benefit kunjungan Gold/Platinum (makanan & minuman gratis, ruang tunggu VIP): hanya untuk cuci, 1 kunjungan per hari.
+    if (pack.kind == ServiceKind.wash &&
+        mem != null &&
+        mem.isActive &&
+        !slot.isAfter(mem.endDate!) &&
+        mem.plan.visitPerks.isNotEmpty &&
+        !_perkUsedOn(_u.email, slot, b.id)) {
+      b.perks = mem.plan.visitPerks;
+    }
     if (code != null) {
       final t = _tpls.firstWhere((e) => e.code == code);
-      _claims['${_u.email}|${t.id}'] = b.id;
+      final ck = _claimKey(_u.email, t);
+      _claims[ck] = b.id;
+      _bookingClaimKey[b.id] = ck;
     }
     _notify(
       _u.email,
       NotifType.order,
-      pack.isShop ? 'Pembelian dibuat' : 'Pesanan dibuat',
+      pack.isShop ? 'Pembelian dibuat' : (b.freeWash ? 'Cuci gratis dipakai' : 'Pesanan dibuat'),
       pack.isShop
           ? '${b.code} • ${b.itemCount} item. Selesaikan pembayaran untuk menyelesaikan pembelian.'
-          : '${b.code} • ${pack.title}. Selesaikan pembayaran agar pesanan diproses.',
+          : (b.freeWash
+              ? '${b.code} • ${pack.title}. Jatah cuci gratis membership terpakai, tidak perlu membayar.'
+              : '${b.code} • ${pack.title}. Selesaikan pembayaran agar pesanan diproses.'),
       target: 'order:${b.id}',
       push: false,
     );
     return _decorate(b);
   }
+
+  /// Sudah ada kunjungan lain di hari yang sama yang mendapat benefit makanan/minuman/VIP?
+  bool _perkUsedOn(String email, DateTime slot, String exceptId) => _bookings.any((o) =>
+      o.id != exceptId &&
+      _owner[o.id] == email &&
+      !o.cancelled &&
+      o.perks.isNotEmpty &&
+      o.slot.year == slot.year &&
+      o.slot.month == slot.month &&
+      o.slot.day == slot.day);
 
   @override
   Future<Booking> cancelBooking(String id) async {
@@ -448,10 +541,23 @@ class MockRepository implements Repository {
     final b = _own(id);
     if (b.cancelled) throw ApiException('Pesanan sudah dibatalkan.');
     if (!b.cancellable) throw ApiException('Pesanan yang sudah diproses tidak bisa dibatalkan.');
-    final wasPaid = b.paid;
+    final wasPaid = b.paid && !b.freeWash;
     final email = _owner[b.id]!;
     b.cancelled = true;
     _cancelledAt[b.id] = DateTime.now();
+    if (b.freeWash) {
+      // Jatah cuci gratis dikembalikan (hanya bila periode langganannya masih sama).
+      final ref = _freeRec.remove(b.id);
+      final rec = _members[email];
+      if (ref != null && rec != null) {
+        final parts = ref.split('|');
+        if (parts[0] == rec.period.toString()) {
+          if (rec.freeUsed > 0) rec.freeUsed--;
+          rec.freeWeeks.remove(parts[1]);
+        }
+      }
+      b.payStatus = 'unpaid';
+    }
     if (wasPaid) {
       for (final l in b.items) {
         _stock[l.product.id] = (_stock[l.product.id] ?? 0) + l.qty; // stok dikembalikan
@@ -489,13 +595,14 @@ class MockRepository implements Repository {
         }
       }
     }
-    if (b.voucherCode != null) {
-      _claims.removeWhere((k, v) => v == b.id);
-      final t = _tpls.firstWhere((e) => e.code == b.voucherCode);
-      _claims['$email|${t.id}'] = ''; // voucher kembali tersedia
+    final ck = _bookingClaimKey.remove(b.id);
+    if (b.voucherCode != null && ck != null) {
+      _claims[ck] = ''; // voucher kembali tersedia (selama periodenya masih berjalan)
     }
     _notify(email, NotifType.order, 'Pesanan dibatalkan',
-        wasPaid ? '${b.code} dibatalkan. Pembayaran dikembalikan dan Coins pesanan ini ditarik.' : '${b.code} dibatalkan.',
+        b.freeWash
+            ? '${b.code} dibatalkan. Jatah cuci gratis membership kamu dikembalikan.'
+            : (wasPaid ? '${b.code} dibatalkan. Pembayaran dikembalikan dan Coins pesanan ini ditarik.' : '${b.code} dibatalkan.'),
         target: 'order:${b.id}', push: false);
     return _decorate(b);
   }
@@ -514,14 +621,24 @@ class MockRepository implements Repository {
   }
 
   @override
+  Future<VoucherQuota> voucherQuota() async => _quota(_u.email);
+
+  @override
   Future<Voucher> claimVoucher(String id) async {
     await _lag();
     final t = _tpls.where((e) => e.id == id).firstOrNull ?? (throw ApiException('Voucher tidak ditemukan.'));
     final v = _voucher(t);
     if (v.locked) throw ApiException('Voucher ini khusus member ${v.tierLabel}. Beli membership untuk membukanya.');
-    final key = '${_u.email}|$id';
-    if (_claims.containsKey(key)) throw ApiException('Voucher ini sudah kamu klaim.');
+    final key = _claimKey(_u.email, t);
+    if (_claims.containsKey(key)) {
+      throw ApiException(t.weekly
+          ? 'Voucher ini sudah kamu klaim minggu ini. Bisa diklaim lagi mulai Senin depan.'
+          : 'Voucher ini hanya bisa diklaim 1 kali per akun.');
+    }
+    final q = _quota(_u.email);
+    if (q.reached) throw ApiException(_quotaMessage(q));
     _claims[key] = '';
+    (_claimLog[_u.email] ??= <DateTime>[]).add(DateTime.now());
     _notify(_u.email, NotifType.voucher, 'Voucher berhasil diklaim', '${t.code} siap dipakai di pembayaran berikutnya.',
         target: 'vouchers', push: false);
     return _voucher(t);
@@ -600,13 +717,19 @@ class MockRepository implements Repository {
       b.coinDiscount = p.coinDiscount;
       _spend(email, p.coinsUsed, 'Tukar Coins', b.code);
     }
-    final band = payBandFor(b.total);
-    final r = _earn(email, CoinKind.transaction, 'Transaksi ${b.code}', band.coins,
-        note: 'Tingkat ${band.label} • ${rp(b.total)}');
+    // Coins: toko = +5 tiap Rp 10.000 yang dibayar; cuci/oli = sesuai tingkat pembayaran; Rp 0 = tanpa Coins.
+    final earn = coinsForPayment(shop: b.pack.isShop, paid: b.total);
+    var r = 0;
+    if (earn > 0) {
+      r = _earn(email, CoinKind.transaction, 'Transaksi ${b.code}', earn,
+          note: b.pack.isShop
+              ? 'Belanja ${rp(b.total)} (+$kShopCoinReward tiap ${rp(kShopCoinStepRp)})'
+              : 'Tingkat ${payBandFor(b.total).label} • ${rp(b.total)}');
+    }
     b.coinsEarned = r;
     p.coinsEarned = r;
     _notify(email, NotifType.payment, b.pack.isShop ? 'Pembelian berhasil' : 'Pembayaran berhasil',
-        '${b.code} • ${rp(b.total)} via ${p.method.label}. Kamu dapat +$r Coins.',
+        '${b.code} • ${rp(b.total)} via ${p.method.label}.${r > 0 ? ' Kamu dapat +$r Coins.' : ''}',
         target: 'order:${b.id}', push: false);
   }
 
@@ -679,11 +802,27 @@ class MockRepository implements Repository {
       case 'profile':
         return _u.phone.trim().isEmpty ? 'Isi No. HP di Edit Profil dulu' : null;
       case 'first':
-        final any = _bookings.any((b) => _owner[b.id] == _u.email && b.paid);
+        final any = _bookings.any((b) => _owner[b.id] == _u.email && b.paid && b.total > 0);
         return any ? null : 'Selesaikan satu pembayaran dulu';
       default:
         return null;
     }
+  }
+
+  /// Promo bulan ini: berganti otomatis tiap bulan, bisa diklaim 1 kali per bulan per akun.
+  CoinPromo _monthlyPromo(_Wallet w) {
+    final now = DateTime.now();
+    final t = kMonthlyPromos[now.month - 1];
+    final id = monthlyPromoId(now);
+    return CoinPromo(
+      id: id,
+      title: t.$1,
+      desc: t.$2,
+      coins: t.$3,
+      claimed: w.promos.contains(id),
+      monthly: true,
+      endsAt: DateTime(now.year, now.month + 1, 0),
+    );
   }
 
   @override
@@ -698,6 +837,7 @@ class MockRepository implements Repository {
       lastCheckIn: w.last,
       entries: entries,
       promos: [
+        _monthlyPromo(w),
         for (final p in _promos)
           CoinPromo(
             id: p.$1,
@@ -737,8 +877,11 @@ class MockRepository implements Repository {
   @override
   Future<CoinAward> claimPromo(String id) async {
     await _lag(300);
-    final tpl = _promos.where((p) => p.$1 == id).firstOrNull ?? (throw ApiException('Promo tidak ditemukan.'));
     final w = _walletOf(_u.email);
+    final now = DateTime.now();
+    final tpl = id == monthlyPromoId(now)
+        ? (id, kMonthlyPromos[now.month - 1].$1, '', kMonthlyPromos[now.month - 1].$3)
+        : (_promos.where((p) => p.$1 == id).firstOrNull ?? (throw ApiException('Promo tidak ditemukan atau sudah berakhir.')));
     if (w.promos.contains(id)) throw ApiException('Promo ini sudah kamu klaim.');
     final lock = _promoLock(id);
     if (lock != null) throw ApiException(lock);
@@ -753,10 +896,21 @@ class MockRepository implements Repository {
   UserMembership? _userMembership(String email) {
     final r = _members[email];
     if (r == null) return null;
+    final ended = DateTime.now().isAfter(r.end);
     final status = r.cancelled
         ? MembershipStatus.cancelled
-        : (DateTime.now().isAfter(r.end) ? MembershipStatus.expired : MembershipStatus.active);
-    return UserMembership(id: r.id, tier: r.tier, status: status, startDate: r.start, endDate: r.end);
+        : (ended ? (r.cancelAtEnd ? MembershipStatus.cancelled : MembershipStatus.expired) : MembershipStatus.active);
+    return UserMembership(
+      id: r.id,
+      tier: r.tier,
+      status: status,
+      startDate: r.start,
+      endDate: r.end,
+      cancelAtEnd: r.cancelAtEnd,
+      freeTotal: r.freeTotal,
+      freeUsed: r.freeUsed,
+      freeWeeks: Set<String>.of(r.freeWeeks),
+    );
   }
 
   /// 0 = tanpa membership aktif, 1 = Bronze, ... 4 = Platinum.
@@ -828,13 +982,19 @@ class MockRepository implements Repository {
     final now = DateTime.now();
     final cur = _userMembership(email);
     final plan = o.plan;
-    DateTime start = now, end = now.add(Duration(days: plan.durationDays));
-    if (cur != null && cur.isActive && cur.tier == o.tier) {
-      // Perpanjang: masa aktif ditambah dari tanggal berakhir saat ini.
-      start = cur.startDate ?? now;
-      end = cur.endDate!.add(Duration(days: plan.durationDays));
+    final old = _members[email];
+    if (old != null && cur != null && cur.isActive && cur.tier == o.tier) {
+      // Perpanjang: masa aktif ditambah 1 bulan dari tanggal berakhir saat ini, jatah cuci gratis bertambah,
+      // dan status batal langganan dicabut. Jatah tetap maksimal 1x per minggu.
+      old.end = old.end.add(Duration(days: plan.durationDays));
+      old.freeTotal += plan.freeWashQuota;
+      old.cancelAtEnd = false;
+    } else {
+      // Beli baru / ganti paket / beli setelah kedaluwarsa: periode baru dengan jatah cuci gratis baru.
+      _members[email] = _MemberRec('um$email', o.tier, now, now.add(Duration(days: plan.durationDays)),
+          period: ++_memberPeriod, freeTotal: plan.freeWashQuota);
     }
-    _members[email] = _MemberRec('um$email', o.tier, start, end);
+    final end = _members[email]!.end;
     o.status = 'paid';
     (_mTx[email] ??= <MembershipTransaction>[]).add(MembershipTransaction(
       id: o.id,
@@ -883,8 +1043,22 @@ class MockRepository implements Repository {
     final email = _u.email;
     if (_members[email] == null) {
       final now = DateTime.now();
-      _members[email] = _MemberRec('um$email', o.tier, now, now, cancelled: true);
+      _members[email] = _MemberRec('um$email', o.tier, now, now, cancelled: true, period: ++_memberPeriod);
     }
+  }
+
+  @override
+  Future<void> cancelMembership() async {
+    await _lag(250);
+    final email = _u.email;
+    final r = _members[email];
+    final m = _userMembership(email);
+    if (r == null || m == null || !m.isActive) throw ApiException('Tidak ada membership aktif untuk dibatalkan.');
+    if (r.cancelAtEnd) throw ApiException('Langganan sudah dibatalkan.');
+    r.cancelAtEnd = true;
+    _notify(email, NotifType.membership, 'Langganan dibatalkan',
+        'Membership ${r.tier.label} tetap aktif sampai ${DateFormat('d MMM yyyy', 'id_ID').format(r.end)}. Tidak diperpanjang dan tidak ada pengembalian dana.',
+        target: 'membership', push: false);
   }
 
   // ---------- garasi kendaraan ----------

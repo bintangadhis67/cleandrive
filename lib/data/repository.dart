@@ -1,7 +1,7 @@
-import '../loyalty_models.dart';
-import '../membership_models.dart';
-import '../models.dart';
-import '../notification_models.dart';
+import '../models/loyalty_models.dart';
+import '../models/membership_models.dart';
+import '../models/models.dart';
+import '../models/notification_models.dart';
 
 class ApiException implements Exception {
   final String message;
@@ -155,6 +155,7 @@ abstract class Repository {
     required DateTime slot,
     String? voucherCode,
     List<OrderLine> items = const [],
+    bool useFreeWash = false, // pakai jatah cuci gratis membership (total Rp 0, tidak bisa digabung voucher/Coins)
   });
   Future<Booking> cancelBooking(String id);
 
@@ -164,7 +165,10 @@ abstract class Repository {
   Future<List<Voucher>> vouchers();
   Future<Voucher> claimVoucher(String id);
 
-  /// [coins] = Coins yang ditukar jadi potongan (kelipatan 10, maks 50% total). Server memvalidasi dan
+  /// Kuota klaim voucher hari ini (1x per hari, Gold 2x, Platinum 3x).
+  Future<VoucherQuota> voucherQuota();
+
+  /// [coins] = Coins yang ditukar jadi potongan (kelipatan 10, maks 30% total). Server memvalidasi dan
   /// menghitung total sendiri. Coins baru dipotong saat pembayaran berhasil.
   Future<Payment> startPayment(String bookingId, PayMethod method, {int coins = 0});
   Future<Payment> payment(String id);
@@ -186,6 +190,9 @@ abstract class Repository {
   Future<MembershipOrder> confirmMembershipPayment(String id); // e-wallet
   Future<MembershipOrder> simulateMembershipQris(String id); // hanya mode sandbox
   Future<void> cancelMembershipOrder(String id);
+
+  /// Batalkan langganan membership aktif: benefit tetap sampai masa aktif berakhir, tidak diperpanjang, tanpa refund.
+  Future<void> cancelMembership();
 
   // garasi kendaraan
   Future<List<GarageVehicle>> garage();

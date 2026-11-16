@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
-import 'admin.dart';
-import 'app_state.dart';
-import 'auth.dart';
-import 'customer.dart';
+import 'core/app_state.dart';
+import 'core/theme.dart';
 import 'data/mock_repository.dart';
-import 'theme.dart';
+import 'screens/admin/admin.dart';
+import 'screens/auth/auth.dart';
+import 'screens/home/customer.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
