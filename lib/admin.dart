@@ -1,334 +1,310 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart' show DateFormat;
 
+import 'admin/admin_catalog.dart';
+import 'admin/admin_coins.dart';
+import 'admin/admin_customers.dart';
+import 'admin/admin_dashboard.dart';
+import 'admin/admin_data.dart';
+import 'admin/admin_membership.dart';
+import 'admin/admin_orders.dart';
+import 'admin/admin_queue.dart';
+import 'admin/admin_reviews.dart';
+import 'admin/admin_settings.dart';
+import 'admin/admin_ui.dart';
+import 'admin/admin_verify.dart';
 import 'app_state.dart';
-import 'data/repository.dart';
-import 'models.dart';
 import 'theme.dart';
-import 'widgets.dart';
 
-// ================= ADMIN =================
+// ---------------------------------------------------------------------------
+// ADMIN PANEL CLEANDRIVE: kerangka (sidebar navy, header, isi halaman).
+// Halaman-halamannya ada di folder lib/admin/. main.dart tetap memakai AdminScreen seperti sebelumnya.
+// ---------------------------------------------------------------------------
+const _menus = <(String, IconData)>[
+  ('Dashboard', Icons.grid_view_rounded),
+  ('Antrean Layanan', Icons.view_list_rounded),
+  ('Verifikasi Tiket', Icons.qr_code_scanner_rounded),
+  ('Pelanggan', Icons.people_alt_outlined),
+  ('Pesanan & Transaksi', Icons.receipt_long_outlined),
+  ('Layanan & Produk', Icons.inventory_2_outlined),
+  ('CleanDrive Coins', Icons.monetization_on_outlined),
+  ('Membership', Icons.workspace_premium_outlined),
+  ('Ulasan', Icons.rate_review_outlined),
+  ('Pengaturan', Icons.settings_outlined),
+];
+
+/// Lebar layar mulai dari ini memakai sidebar tetap; di bawahnya sidebar menjadi laci (drawer).
+const _kSidebarBreakpoint = 1024.0;
+const _kSidebarWidth = 264.0;
+
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
+
   @override
   State<AdminScreen> createState() => _AdminScreenState();
 }
 
 class _AdminScreenState extends State<AdminScreen> {
+  final _scaffold = GlobalKey<ScaffoldState>();
   int _idx = 0;
-
-  @override
-  Widget build(BuildContext context) {
-    const pages = [AdminQueue(), AdminVerify(), AdminSummaryTab(), AdminReviews()];
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Admin CleanDrive'),
-        actions: [IconButton(tooltip: 'Keluar', icon: const Icon(Icons.logout), onPressed: app.logout)],
-      ),
-      body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 720), child: pages[_idx])),
-      bottomNavigationBar: NavigationBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        indicatorColor: kRed.withOpacity(.14),
-        selectedIndex: _idx,
-        onDestinationSelected: (i) => setState(() => _idx = i),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.format_list_numbered), label: 'Antrean'),
-          NavigationDestination(icon: Icon(Icons.qr_code_scanner), label: 'Verifikasi'),
-          NavigationDestination(icon: Icon(Icons.bar_chart), label: 'Ringkasan'),
-          NavigationDestination(icon: Icon(Icons.star_outline_rounded), label: 'Ulasan'),
-        ],
-      ),
-    );
-  }
-}
-
-class AdminQueue extends StatefulWidget {
-  const AdminQueue({super.key});
-  @override
-  State<AdminQueue> createState() => _AdminQueueState();
-}
-
-class _AdminQueueState extends State<AdminQueue> {
-  Timer? _timer;
-
-  Future<void> _reload() async {
-    try {
-      await app.refreshAll();
-    } catch (_) {}
-  }
 
   @override
   void initState() {
     super.initState();
-    _reload();
-    _timer = Timer.periodic(const Duration(seconds: 8), (_) => _reload());
+    adminDate.value = dayOf(DateTime.now());
+    adminData.attach();
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    adminData.detach();
     super.dispose();
   }
 
+  void _go(int i) {
+    if (_scaffold.currentState?.isDrawerOpen ?? false) Navigator.of(context).pop();
+    setState(() => _idx = i);
+  }
+
+  Widget _page() => switch (_idx) {
+        0 => AdminDashboard(onNavigate: _go),
+        1 => const AdminQueuePage(),
+        2 => const AdminVerifyPage(),
+        3 => const AdminCustomersPage(),
+        4 => const AdminOrdersPage(),
+        5 => const AdminCatalogPage(),
+        6 => const AdminCoinsPage(),
+        7 => const AdminMembershipPage(),
+        8 => const AdminReviewsPage(),
+        _ => const AdminSettingsPage(),
+      };
+
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
-        listenable: app,
-        builder: (_, __) {
-          final q = app.queue.where((b) => !b.cancelled).toList();
-          if (q.isEmpty) return const Center(child: Text('Belum ada antrean', style: TextStyle(color: kMuted)));
-          return RefreshIndicator(
-            color: kRed,
-            onRefresh: _reload,
-            child: ListView(padding: const EdgeInsets.all(12), children: [
-              for (final b in q)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Panel(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Row(children: [
-                        ServiceThumb(b.pack, b.vehicle, width: 74),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(b.pack.isShop ? 'Pembelian Toko • ${b.itemCount} item' : '${b.pack.name} • ${b.vehicle.label} ${b.plate}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                            Text('Pemilik: ${b.owner}', style: const TextStyle(color: kMuted, fontSize: 13)),
-                            Text(fmtDateTime.format(b.slot), style: const TextStyle(color: kMuted, fontSize: 13)),
-                          ]),
-                        ),
-                      ]),
-                      const SizedBox(height: 10),
-                      Wrap(spacing: 8, runSpacing: 6, children: [
-                        StatusChip(b),
-                        PayChip(b),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: (b.verified ? kGreen : kMuted).withOpacity(.14),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(b.verified ? 'Tiket terverifikasi' : 'Belum diverifikasi',
-                              style: TextStyle(color: b.verified ? kGreen : kMuted, fontWeight: FontWeight.w800, fontSize: 12)),
-                        ),
-                      ]),
-                      if (b.status < statusLabels.length - 1) ...[
-                        const SizedBox(height: 10),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: FilledButton(
-                            style: FilledButton.styleFrom(minimumSize: const Size(0, 44), padding: const EdgeInsets.symmetric(horizontal: 18)),
-                            onPressed: () => guard(context, () => app.advance(b)),
-                            child: Text('Ubah ke ${statusLabels[b.status + 1]}'),
-                          ),
-                        ),
-                      ],
-                    ]),
+  Widget build(BuildContext context) {
+    final base = Theme.of(context);
+    final theme = base.copyWith(textTheme: GoogleFonts.poppinsTextTheme(base.textTheme).apply(bodyColor: kText, displayColor: kText));
+    return Theme(
+      data: theme,
+      child: LayoutBuilder(builder: (context, c) {
+        final wide = c.maxWidth >= _kSidebarBreakpoint;
+        final contentW = c.maxWidth - (wide ? _kSidebarWidth : 0);
+        return Scaffold(
+          key: _scaffold,
+          backgroundColor: kAdminBg,
+          drawer: wide ? null : Drawer(width: 280, backgroundColor: kNavyDark, shape: const RoundedRectangleBorder(), child: _Sidebar(index: _idx, onSelect: _go)),
+          body: Row(children: [
+            if (wide) SizedBox(width: _kSidebarWidth, child: _Sidebar(index: _idx, onSelect: _go)),
+            Expanded(
+              child: SafeArea(
+                left: !wide,
+                child: Column(children: [
+                  _Header(
+                    title: _menus[_idx].$1,
+                    showMenu: !wide,
+                    compact: contentW < 640,
+                    onMenu: () => _scaffold.currentState?.openDrawer(),
+                    onGo: _go,
                   ),
+                  Expanded(child: KeyedSubtree(key: ValueKey(_idx), child: _page())),
+                ]),
+              ),
+            ),
+          ]),
+        );
+      }),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// SIDEBAR
+// ---------------------------------------------------------------------------
+class _Sidebar extends StatelessWidget {
+  final int index;
+  final ValueChanged<int> onSelect;
+  const _Sidebar({required this.index, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        color: kNavyDark,
+        child: SafeArea(
+          child: Column(children: [
+            const SizedBox(height: 18),
+            Image.asset('assets/images/logo_transparent.png', width: 118, fit: BoxFit.contain),
+            const SizedBox(height: 4),
+            const Text('Admin Panel', style: TextStyle(color: Colors.white70, fontSize: 13, letterSpacing: .4)),
+            const SizedBox(height: 18),
+            Expanded(
+              child: ListView(padding: const EdgeInsets.symmetric(horizontal: 12), children: [
+                for (var i = 0; i < _menus.length; i++)
+                  _NavItem(label: _menus[i].$1, icon: _menus[i].$2, selected: i == index, onTap: () => onSelect(i)),
+              ]),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 16),
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 48),
+                  side: const BorderSide(color: Colors.white24),
+                  backgroundColor: Colors.white.withValues(alpha: .05),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-            ]),
-          );
-        },
-      );
-}
-
-class AdminVerify extends StatefulWidget {
-  const AdminVerify({super.key});
-  @override
-  State<AdminVerify> createState() => _AdminVerifyState();
-}
-
-class _AdminVerifyState extends State<AdminVerify> {
-  final _code = TextEditingController();
-  String _result = '';
-  bool _ok = false, _busy = false;
-
-  @override
-  void dispose() {
-    _code.dispose();
-    super.dispose();
-  }
-
-  Future<void> _verify() async {
-    setState(() => _busy = true);
-    try {
-      final b = await app.verify(_code.text);
-      _ok = true;
-      _result = 'Valid: ${b.pack.name} • ${b.plate} (${b.owner})';
-    } on ApiException catch (e) {
-      _ok = false;
-      _result = e.message;
-    } catch (_) {
-      _ok = false;
-      _result = 'Terjadi kesalahan. Coba lagi.';
-    }
-    if (mounted) setState(() => _busy = false);
-  }
-
-  @override
-  Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(16), children: [
-        const Text('Masukkan kode tiket konsumen (tertera di bawah QR).', style: TextStyle(color: kMuted)),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _code,
-          textCapitalization: TextCapitalization.characters,
-          decoration: const InputDecoration(labelText: 'Kode tiket (CD-0001-L1234AB)'),
-        ),
-        const SizedBox(height: 12),
-        RedButton('Verifikasi', icon: Icons.verified_user, busy: _busy, onPressed: _verify),
-        const SizedBox(height: 16),
-        if (_result.isNotEmpty)
-          Panel(
-            color: _ok ? const Color(0x1F2E9E5B) : const Color(0x1FD64545),
-            child: Row(children: [
-              Icon(_ok ? Icons.check_circle : Icons.error, color: _ok ? kGreen : const Color(0xFFB3261E)),
-              const SizedBox(width: 10),
-              Expanded(child: Text(_result, style: const TextStyle(fontWeight: FontWeight.w700))),
-            ]),
-          ),
-        const SizedBox(height: 8),
-        const Text('Catatan: tiket harus sudah dibayar. Scan kamera (mobile_scanner) bisa ditambahkan untuk versi HP.',
-            style: TextStyle(fontSize: 12, color: kMuted)),
-      ]);
-}
-
-class AdminSummaryTab extends StatefulWidget {
-  const AdminSummaryTab({super.key});
-  @override
-  State<AdminSummaryTab> createState() => _AdminSummaryTabState();
-}
-
-class _AdminSummaryTabState extends State<AdminSummaryTab> {
-  late Future<AdminSummary> _f = app.summary();
-
-  Widget _stat(IconData icon, String label, String value) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Panel(
-          child: Row(children: [
-            Icon(icon, color: kNavy),
-            const SizedBox(width: 14),
-            Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700))),
-            Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                onPressed: app.logout,
+                icon: const Icon(Icons.logout_rounded, size: 19),
+                label: const Text('Keluar', style: TextStyle(fontWeight: FontWeight.w600)),
+              ),
+            ),
           ]),
         ),
       );
+}
+
+class _NavItem extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+  const _NavItem({required this.label, required this.icon, required this.selected, required this.onTap});
 
   @override
-  Widget build(BuildContext context) => RefreshIndicator(
-        color: kRed,
-        onRefresh: () async {
-          final f = app.summary();
-          setState(() => _f = f);
-          await f.catchError((_) => AdminSummary(total: 0, done: 0, revenue: 0, byPackage: {}, rating: const RatingSummary(0, 0)));
-        },
-        child: FutureBuilder<AdminSummary>(
-          future: _f,
-          builder: (context, snap) {
-            if (snap.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator(color: kRed));
-            }
-            if (snap.hasError) {
-              return ListView(children: [
-                Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Text(snap.error is ApiException ? (snap.error as ApiException).message : 'Gagal memuat ringkasan. Tarik untuk coba lagi.',
-                      textAlign: TextAlign.center, style: const TextStyle(color: kMuted)),
-                ),
-              ]);
-            }
-            final s = snap.data!;
-            return ListView(padding: const EdgeInsets.all(16), children: [
-              _stat(Icons.receipt_long, 'Total pesanan', '${s.total}'),
-              _stat(Icons.task_alt, 'Pesanan selesai', '${s.done}'),
-              _stat(Icons.payments, 'Pendapatan (selesai & lunas)', rp(s.revenue)),
-              Panel(
-                child: Row(children: [
-                  const Icon(Icons.star_rounded, color: kGold),
-                  const SizedBox(width: 14),
-                  const Expanded(child: Text('Rating rata-rata', style: TextStyle(fontWeight: FontWeight.w700))),
-                  Text(s.rating.count == 0 ? '-' : '${s.rating.avg.toStringAsFixed(1)} (${s.rating.count})',
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                ]),
-              ),
-              sec('Pesanan per paket'),
-              for (final e in s.byPackage.entries)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Panel(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    child: Row(children: [
-                      Expanded(child: Text(e.key, style: const TextStyle(fontWeight: FontWeight.w700))),
-                      Text('${e.value}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                    ]),
-                  ),
-                ),
-            ]);
-          },
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Material(
+          color: selected ? kRed : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            hoverColor: Colors.white.withValues(alpha: .06),
+            onTap: onTap,
+            child: Container(
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: selected
+                  ? BoxDecoration(borderRadius: BorderRadius.circular(12), boxShadow: const [BoxShadow(color: Color(0x55C62026), blurRadius: 14, offset: Offset(0, 6))])
+                  : null,
+              child: Row(children: [
+                Icon(icon, color: Colors.white, size: 22),
+                const SizedBox(width: 14),
+                Expanded(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: selected ? FontWeight.w600 : FontWeight.w500))),
+              ]),
+            ),
+          ),
         ),
       );
 }
 
-class AdminReviews extends StatefulWidget {
-  const AdminReviews({super.key});
-  @override
-  State<AdminReviews> createState() => _AdminReviewsState();
-}
+// ---------------------------------------------------------------------------
+// HEADER: judul, breadcrumb, tanggal, notifikasi, profil
+// ---------------------------------------------------------------------------
+class _Header extends StatelessWidget {
+  final String title;
+  final bool showMenu, compact;
+  final VoidCallback onMenu;
+  final ValueChanged<int> onGo;
+  const _Header({required this.title, required this.showMenu, required this.compact, required this.onMenu, required this.onGo});
 
-class _AdminReviewsState extends State<AdminReviews> {
-  late Future<List<Booking>> _f = app.allReviews();
+  Future<void> _pickDate(BuildContext context) async {
+    final now = DateTime.now();
+    final d = await showDatePicker(
+      context: context,
+      initialDate: adminDate.value,
+      firstDate: DateTime(now.year - 2),
+      lastDate: DateTime(now.year + 2),
+      helpText: 'Pilih tanggal',
+    );
+    if (d != null) adminDate.value = dayOf(d);
+  }
 
   @override
-  Widget build(BuildContext context) => RefreshIndicator(
-        color: kRed,
-        onRefresh: () async {
-          final f = app.allReviews();
-          setState(() => _f = f);
-          await f.catchError((_) => <Booking>[]);
-        },
-        child: FutureBuilder<List<Booking>>(
-          future: _f,
-          builder: (context, snap) {
-            if (snap.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator(color: kRed));
-            }
-            final list = snap.data ?? [];
-            if (list.isEmpty) {
-              return ListView(children: const [
-                Padding(padding: EdgeInsets.all(32), child: Text('Belum ada ulasan dari konsumen.', textAlign: TextAlign.center, style: TextStyle(color: kMuted))),
-              ]);
-            }
-            final avg = list.map((b) => b.review!.rating).reduce((a, b) => a + b) / list.length;
-            return ListView(padding: const EdgeInsets.all(16), children: [
-              Panel(
+  Widget build(BuildContext context) => Padding(
+        padding: EdgeInsets.fromLTRB(compact ? 8 : 24, 14, compact ? 8 : 24, 10),
+        child: Row(children: [
+          if (showMenu) IconButton(tooltip: 'Menu', onPressed: onMenu, icon: const Icon(Icons.menu_rounded, color: kNavy)),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: compact ? 20 : 26, fontWeight: FontWeight.w800, color: kNavy)),
+              Row(children: [
+                InkWell(onTap: () => onGo(0), child: const Text('Beranda', style: TextStyle(color: kRed, fontSize: 13, fontWeight: FontWeight.w500))),
+                const Text('  /  ', style: TextStyle(color: kMuted, fontSize: 13)),
+                Expanded(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: kMuted, fontSize: 13))),
+              ]),
+            ]),
+          ),
+          const SizedBox(width: 8),
+          ValueListenableBuilder<DateTime>(
+            valueListenable: adminDate,
+            builder: (_, d, __) => InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () => _pickDate(context),
+              child: Container(
+                height: 46,
+                padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 14),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: kCardLine)),
                 child: Row(children: [
-                  Text(avg.toStringAsFixed(1), style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800)),
-                  const SizedBox(width: 14),
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    StarRow(avg, size: 20),
-                    Text('${list.length} ulasan', style: const TextStyle(color: kMuted)),
-                  ]),
+                  const Icon(Icons.calendar_today_rounded, size: 18, color: kNavy),
+                  if (!compact) ...[
+                    const SizedBox(width: 10),
+                    Text(DateFormat('d MMMM yyyy', 'id_ID').format(d), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5, color: kNavy)),
+                    const SizedBox(width: 6),
+                    const Icon(Icons.keyboard_arrow_down_rounded, size: 20, color: kNavy),
+                  ],
                 ]),
               ),
-              const SizedBox(height: 12),
-              for (final b in list)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Panel(
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Lonceng: jumlah pesanan lunas yang masih menunggu dikerjakan.
+          ListenableBuilder(
+            listenable: app,
+            builder: (context, _) {
+              final n = app.bookings.where((b) => !b.cancelled && !b.pack.isShop && b.paid && b.status == 0).length;
+              return IconButton(
+                tooltip: '$n pesanan menunggu dikerjakan',
+                onPressed: () => showAllActivities(context),
+                icon: Badge(
+                  isLabelVisible: n > 0,
+                  backgroundColor: kRed,
+                  label: Text(n > 99 ? '99+' : '$n'),
+                  child: const Icon(Icons.notifications_none_rounded, color: kNavy, size: 26),
+                ),
+              );
+            },
+          ),
+          ListenableBuilder(
+            listenable: app,
+            builder: (context, _) => PopupMenuButton<String>(
+              tooltip: 'Akun admin',
+              offset: const Offset(0, 48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              onSelected: (v) {
+                if (v == 'logout') {
+                  app.logout();
+                } else {
+                  onGo(9);
+                }
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'settings', child: Text('Pengaturan')),
+                PopupMenuItem(value: 'logout', child: Text('Keluar')),
+              ],
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                InitialAvatar(app.user ?? 'Admin', size: 42),
+                if (!compact) ...[
+                  const SizedBox(width: 10),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 130),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Row(children: [
-                        Expanded(child: Text(b.owner, style: const TextStyle(fontWeight: FontWeight.w800))),
-                        StarRow(b.review!.rating.toDouble(), size: 16),
-                      ]),
-                      Text('${b.pack.name} • ${b.code} • ${fmtDate.format(b.slot)}', style: const TextStyle(fontSize: 12, color: kMuted)),
-                      if (b.review!.comment.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Text(b.review!.comment),
-                      ],
+                      Text(app.user ?? 'Admin', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5, color: kNavy)),
+                      const Text('Super Admin', style: TextStyle(color: kMuted, fontSize: 12)),
                     ]),
                   ),
-                ),
-            ]);
-          },
-        ),
+                  const Icon(Icons.keyboard_arrow_down_rounded, color: kMuted),
+                ],
+              ]),
+            ),
+          ),
+        ]),
       );
 }

@@ -10,7 +10,9 @@ import 'repository.dart';
 class _MockUser {
   String name, email, phone, pass;
   final bool isAdmin;
-  _MockUser(this.name, this.email, this.phone, this.pass, {this.isAdmin = false});
+  final DateTime createdAt;
+  _MockUser(this.name, this.email, this.phone, this.pass, {this.isAdmin = false, DateTime? createdAt})
+      : createdAt = createdAt ?? DateTime.now();
   SessionUser get session => SessionUser(name: name, email: email, phone: phone, isAdmin: isAdmin);
 }
 
@@ -83,7 +85,7 @@ class MockRepository implements Repository {
 
   final List<_MockUser> _users = [
     _MockUser('Admin CleanDrive', 'admin@cleandrive.com', '', 'admin123', isAdmin: true),
-    _MockUser('Budi Santoso', 'budi@mail.com', '081200000002', '123456'),
+    _MockUser('Budi Santoso', 'budi@mail.com', '081200000002', '123456', createdAt: DateTime.now().subtract(const Duration(days: 12))),
   ];
   _MockUser? _me;
 
@@ -95,6 +97,10 @@ class MockRepository implements Repository {
   final Map<String, List<AppNotification>> _notifs = {}; // email -> notifikasi
   final Set<String> _reminded = {}; // bookingId yang sudah dikirimi pengingat
   final Map<String, int> _stock = {for (final p in products) p.id: p.stock}; // stok produk toko
+  // Waktu kejadian untuk panel admin (Aktivitas Terbaru).
+  final Map<String, DateTime> _created = {}; // bookingId -> waktu pesanan dibuat
+  final Map<String, DateTime> _verifiedAt = {}; // bookingId -> waktu tiket diverifikasi
+  final Map<String, DateTime> _cancelledAt = {}; // bookingId -> waktu pesanan dibatalkan
   int _bookingSeq = 0, _paySeq = 0, _coinSeq = 0, _notifSeq = 0, _memSeq = 0, _garageSeq = 0;
 
   // Membership: data dan transaksi terpisah dari Coins.
@@ -238,6 +244,7 @@ class MockRepository implements Repository {
     );
     _bookings.insert(0, b);
     _owner[id] = u.email;
+    _created[id] = slot.isBefore(DateTime.now()) ? slot.subtract(const Duration(hours: 1)) : DateTime.now();
     return b;
   }
 
@@ -444,6 +451,7 @@ class MockRepository implements Repository {
     final wasPaid = b.paid;
     final email = _owner[b.id]!;
     b.cancelled = true;
+    _cancelledAt[b.id] = DateTime.now();
     if (wasPaid) {
       for (final l in b.items) {
         _stock[l.product.id] = (_stock[l.product.id] ?? 0) + l.qty; // stok dikembalikan
@@ -977,6 +985,7 @@ class MockRepository implements Repository {
     if (b.cancelled) throw ApiException('Tiket ${b.code} sudah dibatalkan.');
     if (!b.paid) throw ApiException('Tiket ${b.code} belum dibayar.');
     b.verified = true;
+    _verifiedAt[b.id] = DateTime.now();
     final owner = _owner[b.id];
     if (owner != null) {
       _notify(owner, NotifType.order, 'Tiket terverifikasi', '${b.code} sudah diverifikasi petugas.',
@@ -1019,6 +1028,76 @@ class MockRepository implements Repository {
       revenue: done.fold(0, (s, b) => s + b.total),
       byPackage: by,
       rating: _rating(),
+    );
+  }
+
+  @override
+  Future<AdminOverview> adminOverview() async {
+    await _lag(150);
+    if (!_u.isAdmin) throw ApiException('Khusus admin.');
+    final now = DateTime.now();
+    bool today(DateTime d) => d.year == now.year && d.month == now.month && d.day == now.day;
+    final customers = <AdminCustomer>[];
+    final nameOf = <String, String>{};
+    final coinRows = <AdminCoinRow>[];
+    final acts = <AdminActivity>[];
+    var circulating = 0, checkinsToday = 0, redeemCount = 0, redeemed = 0;
+
+    for (final u in _users.where((e) => !e.isAdmin)) {
+      nameOf[u.email] = u.name;
+      final mine = _bookings.where((b) => _owner[b.id] == u.email && !b.cancelled).toList();
+      final w = _wallets[u.email];
+      customers.add(AdminCustomer(
+        name: u.name,
+        email: u.email,
+        phone: u.phone,
+        joinedAt: u.createdAt,
+        orders: mine.length,
+        spent: mine.where((b) => b.paid).fold(0, (s, b) => s + b.total),
+        coins: w?.balance ?? 0,
+        membership: _userMembership(u.email),
+      ));
+      acts.add(AdminActivity(AdminActivityKind.customer, 'Pelanggan baru terdaftar', u.name, u.createdAt));
+      if (w == null) continue;
+      circulating += w.balance;
+      if (w.last != null && today(w.last!)) checkinsToday++;
+      for (final e in w.entries) {
+        coinRows.add(AdminCoinRow(u.name, e));
+        if (e.kind == CoinKind.redeem) {
+          redeemCount++;
+          redeemed += -e.amount;
+        }
+        if (e.kind == CoinKind.checkin) {
+          acts.add(AdminActivity(AdminActivityKind.checkin, 'Check-in harian', '+${e.amount} Coins oleh ${u.name}', e.createdAt));
+        }
+      }
+    }
+    coinRows.sort((a, b) => b.entry.createdAt.compareTo(a.entry.createdAt));
+
+    for (final b in _bookings) {
+      final at = _created[b.id] ?? b.slot;
+      acts.add(AdminActivity(AdminActivityKind.order, 'Pesanan #${b.code}', '${b.pack.title} oleh ${b.owner}', at));
+      if (b.status >= 3 && !b.cancelled) {
+        acts.add(AdminActivity(AdminActivityKind.done, 'Pesanan #${b.code}', 'Telah selesai dan dibayar', b.estFinish));
+      }
+      final v = _verifiedAt[b.id];
+      if (v != null) acts.add(AdminActivity(AdminActivityKind.verified, 'Tiket #${b.code}', 'Berhasil diverifikasi', v));
+      final c = _cancelledAt[b.id];
+      if (c != null) acts.add(AdminActivity(AdminActivityKind.cancelled, 'Pesanan #${b.code}', 'Dibatalkan oleh pelanggan', c));
+    }
+    acts.sort((a, b) => b.at.compareTo(a.at));
+
+    final memberTx = <AdminMemberTx>[
+      for (final e in _mTx.entries)
+        for (final t in e.value) AdminMemberTx(nameOf[e.key] ?? e.key, t),
+    ]..sort((a, b) => b.tx.createdAt.compareTo(a.tx.createdAt));
+
+    return AdminOverview(
+      customers: customers,
+      coins: AdminCoinStats(circulating: circulating, checkinsToday: checkinsToday, redeemCount: redeemCount, redeemedCoins: redeemed),
+      coinRows: coinRows,
+      memberTx: memberTx,
+      activities: acts.take(40).toList(),
     );
   }
 

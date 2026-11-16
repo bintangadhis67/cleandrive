@@ -56,6 +56,84 @@ class AdminSummary {
   }
 }
 
+// ---------------------------------------------------------------------------
+// DATA KHUSUS PANEL ADMIN (ringkasan lintas pelanggan)
+// ---------------------------------------------------------------------------
+enum AdminActivityKind { order, done, verified, checkin, customer, cancelled }
+
+/// Satu kejadian di panel "Aktivitas Terbaru".
+class AdminActivity {
+  final AdminActivityKind kind;
+  final String title, subtitle;
+  final DateTime at;
+  const AdminActivity(this.kind, this.title, this.subtitle, this.at);
+}
+
+/// Pelanggan beserta ringkasan transaksi, Coins, dan membership.
+class AdminCustomer {
+  final String name, email, phone;
+  final DateTime joinedAt;
+  final int orders; // jumlah pesanan (tidak dibatalkan)
+  final int spent; // total pembayaran lunas
+  final int coins; // saldo CleanDrive Coins
+  final UserMembership? membership;
+  const AdminCustomer({
+    required this.name,
+    required this.email,
+    required this.phone,
+    required this.joinedAt,
+    required this.orders,
+    required this.spent,
+    required this.coins,
+    this.membership,
+  });
+
+  bool get hasActiveMembership => membership?.isActive ?? false;
+  MembershipTier? get activeTier => hasActiveMembership ? membership!.tier : null;
+}
+
+/// Satu baris riwayat Coins milik seorang pelanggan.
+class AdminCoinRow {
+  final String customer;
+  final CoinEntry entry;
+  const AdminCoinRow(this.customer, this.entry);
+}
+
+class AdminCoinStats {
+  final int circulating; // total saldo Coins semua pelanggan
+  final int checkinsToday; // pelanggan yang check-in hari ini
+  final int redeemCount; // jumlah penukaran Coins
+  final int redeemedCoins; // total Coins yang dipakai
+  const AdminCoinStats({
+    this.circulating = 0,
+    this.checkinsToday = 0,
+    this.redeemCount = 0,
+    this.redeemedCoins = 0,
+  });
+}
+
+/// Satu baris riwayat pembelian membership milik seorang pelanggan.
+class AdminMemberTx {
+  final String customer;
+  final MembershipTransaction tx;
+  const AdminMemberTx(this.customer, this.tx);
+}
+
+class AdminOverview {
+  final List<AdminCustomer> customers;
+  final AdminCoinStats coins;
+  final List<AdminCoinRow> coinRows;
+  final List<AdminMemberTx> memberTx;
+  final List<AdminActivity> activities;
+  const AdminOverview({
+    this.customers = const [],
+    this.coins = const AdminCoinStats(),
+    this.coinRows = const [],
+    this.memberTx = const [],
+    this.activities = const [],
+  });
+}
+
 /// Kontrak sumber data. Saat ini hanya ada MockRepository (data tiruan di memori, tanpa backend).
 /// Integrasi ke backend nanti dilakukan dengan membuat implementasi baru dari kelas ini,
 /// tanpa mengubah layar-layar aplikasi.
@@ -125,4 +203,7 @@ abstract class Repository {
   Future<Booking> advance(String bookingId);
   Future<AdminSummary> summary();
   Future<List<Booking>> allReviews();
+
+  /// Ringkasan lintas pelanggan untuk panel admin: pelanggan, Coins, membership, dan aktivitas terbaru.
+  Future<AdminOverview> adminOverview();
 }
