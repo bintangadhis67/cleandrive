@@ -43,6 +43,7 @@ class AppState extends ChangeNotifier {
   int? requestedTab;
   WashPackage? requestedPack;
   VehicleType? requestedVehicle;
+  Product? requestedOil; // oli dari toko yang dibawa ke booking jasa ganti oli
 
   /// Voucher yang dipilih dari layar klaim ("Gunakan Sekarang").
   Voucher? pendingVoucher;
@@ -148,6 +149,7 @@ class AppState extends ChangeNotifier {
     requestedTab = null;
     requestedPack = null;
     requestedVehicle = null;
+    requestedOil = null;
     notifyListeners();
   }
 
@@ -158,10 +160,11 @@ class AppState extends ChangeNotifier {
 
   Future<void> changePassword(String oldPass, String newPass) => repo.changePassword(oldPass, newPass);
 
-  void requestTab(int i, {WashPackage? pack, VehicleType? vehicle}) {
+  void requestTab(int i, {WashPackage? pack, VehicleType? vehicle, Product? oil}) {
     requestedTab = i;
     requestedPack = pack;
     requestedVehicle = vehicle;
+    requestedOil = oil;
     notifyListeners();
   }
 

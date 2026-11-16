@@ -10,6 +10,7 @@ import 'loyalty_models.dart';
 import 'models.dart';
 import 'payment.dart';
 import 'shop.dart';
+import 'outlet.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -521,6 +522,7 @@ class _DetailScreenState extends State<DetailScreen> {
                       const Divider(height: 28),
                       ],
                       kv(shop ? 'No. Pembelian' : 'No. Pesanan', '#${b.id}'),
+                      kv('Lokasi', '${kOutlet.name}, ${kOutlet.shortAddress}'),
                       if (!b.pack.isShop) kv('Kendaraan', '${b.vehicle.label} • ${b.plate}'),
                       kv(b.pack.isShop ? 'Jenis' : (b.pack.isOil ? 'Layanan' : 'Paket'), b.pack.title),
                       kv(b.pack.isShop ? 'Waktu Beli' : 'Jadwal', fmtDateTime.format(b.slot)),

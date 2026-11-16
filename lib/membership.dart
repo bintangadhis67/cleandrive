@@ -569,7 +569,7 @@ class MembershipPlanDetailScreen extends StatelessWidget {
             ],
           ),
           bottomNavigationBar: Container(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            padding: EdgeInsets.fromLTRB(pagePad(MediaQuery.sizeOf(context).width), 12, pagePad(MediaQuery.sizeOf(context).width), 12),
             decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: kLine))),
             child: SafeArea(
               top: false,

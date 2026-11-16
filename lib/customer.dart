@@ -17,6 +17,7 @@ import 'models.dart';
 import 'notification_models.dart';
 import 'notifications.dart';
 import 'orders.dart';
+import 'outlet.dart';
 import 'payment.dart';
 import 'settings.dart';
 import 'shop.dart';
@@ -24,7 +25,7 @@ import 'theme.dart';
 import 'voucher.dart';
 import 'widgets.dart';
 
-typedef GoFn = void Function(int, {WashPackage? pack, VehicleType? vehicle});
+typedef GoFn = void Function(int, {WashPackage? pack, VehicleType? vehicle, Product? oil});
 
 const _dayNames = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 const _monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
@@ -43,6 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _idx = 0; // 0 Beranda, 1 Riwayat, 2 Booking, 3 Toko, 4 Akun
   WashPackage? _pack;
   VehicleType? _vehicle;
+  Product? _oil;
   Timer? _poll;
 
   @override
@@ -65,15 +67,17 @@ class _HomeScreenState extends State<HomeScreen> {
   void _onApp() {
     final t = app.requestedTab;
     if (t != null) {
-      final p = app.requestedPack, v = app.requestedVehicle;
+      final p = app.requestedPack, v = app.requestedVehicle, o = app.requestedOil;
       app.requestedTab = null;
       app.requestedPack = null;
       app.requestedVehicle = null;
+      app.requestedOil = null;
       if (mounted) {
         setState(() {
           _idx = t;
           _pack = p;
           _vehicle = v;
+          _oil = o;
         });
       }
     }
@@ -105,10 +109,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _go(int i, {WashPackage? pack, VehicleType? vehicle}) => setState(() {
+  void _go(int i, {WashPackage? pack, VehicleType? vehicle, Product? oil}) => setState(() {
         _idx = i;
         _pack = pack;
         _vehicle = vehicle;
+        _oil = oil;
       });
 
   Widget _body() {
@@ -120,9 +125,10 @@ class _HomeScreenState extends State<HomeScreen> {
         page = const OrdersScreen();
       case 2:
         page = BookingScreen(
-          key: ValueKey('${_pack?.name}-${_vehicle?.name}'),
+          key: ValueKey('${_pack?.name}-${_vehicle?.name}-${_oil?.id}'),
           initialPack: _pack,
           initialVehicle: _vehicle,
+          initialOil: _oil,
         );
       case 3:
         page = const ShopScreen(embedded: true);
@@ -403,6 +409,8 @@ class BerandaTab extends StatelessWidget {
               const RewardsHomeCard(),
               const SizedBox(height: 16),
               _quickPanel(context),
+              const SizedBox(height: 16),
+              const OutletHomeCard(),
               ...reviewCard,
               ...activeSection,
               ShopHomeSection(onSeeAll: () => onGo(3)),
@@ -457,7 +465,8 @@ class _ActiveCard extends StatelessWidget {
 class BookingScreen extends StatefulWidget {
   final WashPackage? initialPack;
   final VehicleType? initialVehicle;
-  const BookingScreen({super.key, this.initialPack, this.initialVehicle});
+  final Product? initialOil; // oli yang sudah dipilih di toko
+  const BookingScreen({super.key, this.initialPack, this.initialVehicle, this.initialOil});
   @override
   State<BookingScreen> createState() => _BookingScreenState();
 }
@@ -465,7 +474,7 @@ class BookingScreen extends StatefulWidget {
 class _BookingScreenState extends State<BookingScreen> {
   late VehicleType _v = widget.initialVehicle ?? VehicleType.mobil;
   late WashPackage _p = widget.initialPack ?? packages[1];
-  Product? _oil; // oli yang dipilih (jasa ganti oli)
+  late Product? _oil = widget.initialOil; // oli yang dipilih (jasa ganti oli)
   final _plate = TextEditingController();
   int _dayOffset = 0;
   int? _hour;
@@ -860,6 +869,7 @@ class _BookingScreenState extends State<BookingScreen> {
               kv(_isOil ? 'Layanan' : 'Paket', _p.title),
               kv('Kendaraan', _v.label),
               kv('Nomor polisi', _plate.text.trim().isEmpty ? '-' : _plate.text.trim().toUpperCase()),
+              kv('Lokasi', kOutlet.name),
               kv('Jadwal', slot == null ? 'Belum dipilih' : fmtDateTime.format(slot)),
               if (_isOil) kv('Oli', _oil?.name ?? 'Belum dipilih'),
               const Divider(height: 18),
@@ -932,6 +942,119 @@ class ConfirmOrderScreen extends StatefulWidget {
 class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
   Voucher? _voucher;
   bool _busy = false;
+  bool _withService = false; // pembelian oli: pakai jasa penggantian oli?
+
+  // ----- pembelian oli di toko: opsi jasa penggantian -----
+  List<OrderLine> get _oilLines => widget.items.where((l) => l.product.category == ProductCategory.oli).toList();
+  bool get _hasOil => widget.pack.isShop && _oilLines.isNotEmpty;
+
+  /// Jasa penggantian hanya untuk tepat 1 oli (jumlah 1), karena satu booking = satu penggantian.
+  bool get _serviceEligible => _oilLines.length == 1 && _oilLines.first.qty == 1;
+  bool get _serviceMode => _hasOil && _withService && _serviceEligible;
+
+  VehicleType _oilVehicle(Product p) => p.vehicles.isEmpty ? VehicleType.mobil : p.vehicles.first;
+  int get _serviceFee => oilChangePackage.priceFor(_oilVehicle(_oilLines.first.product));
+
+  /// Oli dipindah dari keranjang ke booking jasa, lalu pengguna memilih jadwal.
+  void _goService() {
+    final line = _oilLines.first;
+    final v = _oilVehicle(line.product);
+    final nav = Navigator.of(context);
+    app.setQty(line.product, 0);
+    toast(context, 'Oli dipindah ke booking jasa. Pilih jadwal untuk melanjutkan.');
+    nav.popUntil((r) => r.isFirst);
+    app.requestTab(2, pack: oilChangePackage, vehicle: v, oil: line.product);
+  }
+
+  Widget _choiceTile({
+    required bool selected,
+    required bool enabled,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) =>
+      Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: enabled ? onTap : null,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: selected ? kRed.withValues(alpha: .06) : Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: selected ? kRed : kLine, width: selected ? 2 : 1),
+            ),
+            child: Opacity(
+              opacity: enabled ? 1 : .5,
+              child: Row(children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(color: selected ? kRed : kNavy, borderRadius: BorderRadius.circular(14)),
+                  child: Icon(icon, color: Colors.white, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 2),
+                    Text(subtitle, style: const TextStyle(color: kMuted, fontSize: 12.5, height: 1.3)),
+                  ]),
+                ),
+                const SizedBox(width: 8),
+                Icon(selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded, color: selected ? kRed : kMuted),
+              ]),
+            ),
+          ),
+        ),
+      );
+
+  Widget _servicePanel() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        sec('Jasa Penggantian Oli'),
+        _choiceTile(
+          selected: !_serviceMode,
+          enabled: true,
+          icon: Icons.storefront_rounded,
+          title: 'Beli oli saja',
+          subtitle: 'Tanpa jasa. Oli diambil di kasir ${kOutlet.name}.',
+          onTap: () => setState(() => _withService = false),
+        ),
+        _choiceTile(
+          selected: _serviceMode,
+          enabled: _serviceEligible,
+          icon: Icons.build_circle_rounded,
+          title: 'Beli oli + jasa penggantian',
+          subtitle: _serviceEligible
+              ? 'Dipasang teknisi CleanDrive. Jasa ${rp(_serviceFee)}, lalu pilih jadwal dan nomor polisi di langkah berikutnya.'
+              : 'Jasa hanya untuk 1 oli. Kurangi jumlah oli di keranjang menjadi 1.',
+          onTap: () => setState(() => _withService = true),
+        ),
+      ]);
+
+  /// Ringkasan bila memilih oli + jasa (pembayaran dilakukan setelah memilih jadwal).
+  List<Widget> _serviceSummary() {
+    final oil = _oilLines.first.product;
+    return [
+      sec('Perkiraan Biaya', top: 0),
+      Panel(
+        child: Column(children: [
+          kv(oil.name, rp(oil.price)),
+          kv('Jasa penggantian (${_oilVehicle(oil).label})', rp(_serviceFee)),
+          const Divider(height: 22),
+          Row(children: [
+            const Expanded(child: Text('Perkiraan Total', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
+            Text(rp(oil.price + _serviceFee), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
+          ]),
+          const SizedBox(height: 8),
+          const Text('Voucher dan diskon membership dihitung di konfirmasi booking. Pembayaran setelah jadwal dipilih.',
+              style: TextStyle(color: kMuted, fontSize: 12.5, height: 1.35)),
+        ]),
+      ),
+    ];
+  }
 
   int get _servicePrice => widget.pack.priceFor(widget.vehicle);
   int get _itemsTotal => widget.items.fold(0, (s, l) => s + l.subtotal);
@@ -1049,19 +1172,22 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
                   if (pack.isShop) ...[
                     kv('Jenis', 'Pembelian Langsung'),
                     kv('Jumlah', '${widget.items.fold(0, (s, l) => s + l.qty)} item'),
-                    kv('Ambil di', 'Kasir CleanDrive'),
+                    kv('Ambil di', 'Kasir ${kOutlet.name}'),
                   ] else ...[
                     kv(pack.isOil ? 'Layanan' : 'Paket', pack.title),
                     kv('Kendaraan', widget.vehicle.label),
                     kv('Nomor Polisi', widget.plate.toUpperCase()),
+                    kv('Lokasi', '${kOutlet.name}, ${kOutlet.shortAddress}'),
                     kv('Tanggal', fmtDate.format(widget.slot)),
                     kv('Jam', '${fmtHm.format(widget.slot)} WIB'),
                     kv('Estimasi Selesai', '${fmtHm.format(widget.estimate)} WIB'),
                   ],
                 ]),
               ),
+              if (_hasOil) _servicePanel(),
             ],
             right: [
+              if (_serviceMode) ..._serviceSummary() else ...[
               sec('Rincian Pembayaran', top: 0),
               Panel(
                 child: Column(children: [
@@ -1119,8 +1245,12 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
                   ]),
                 ]),
               ),
+              ],
               const SizedBox(height: 18),
-              RedButton(pack.isShop ? 'Lanjut ke Pembayaran' : 'Konfirmasi Pesanan', busy: _busy, onPressed: _confirm),
+              if (_serviceMode)
+                RedButton('Lanjut Pilih Jadwal', icon: Icons.event_available_rounded, onPressed: _goService)
+              else
+                RedButton(pack.isShop ? 'Lanjut ke Pembayaran' : 'Konfirmasi Pesanan', busy: _busy, onPressed: _confirm),
               const SizedBox(height: 12),
               Text(
                 pack.isShop
@@ -1346,6 +1476,8 @@ class AkunTab extends StatelessWidget {
                     child: Column(children: [
                       _menu(Icons.directions_car_outlined, 'Kendaraan Saya', () => _push(context, const GarageScreen()),
                           trailingText: app.garage.isEmpty ? null : '${app.garage.length}'),
+                      const Divider(height: 1),
+                      _menu(Icons.location_on_outlined, 'Lokasi Outlet', () => openOutlet(context)),
                       const Divider(height: 1),
                       _menu(Icons.history_rounded, 'Riwayat Transaksi', () => onGo(1)),
                       const Divider(height: 1),
