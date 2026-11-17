@@ -163,7 +163,7 @@ class _VehicleFormState extends State<_VehicleForm> {
     final sel = _type == v;
     return Expanded(
       child: Padding(
-        padding: EdgeInsets.only(right: v == VehicleType.suv ? 0 : 8),
+        padding: EdgeInsets.only(right: v == VehicleType.values.last ? 0 : 8),
         child: GestureDetector(
           onTap: () => setState(() => _type = v),
           child: AnimatedContainer(

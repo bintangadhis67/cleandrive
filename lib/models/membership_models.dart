@@ -51,6 +51,7 @@ class MembershipPlan {
   final Set<VehicleType> freeVehicles; // kendaraan yang boleh memakai cuci gratis
   final bool snack; // makanan dan minuman gratis selama pencucian
   final bool vip; // ruang tunggu VIP (TV dan AC)
+  final bool massage; // kursi pijat selama menunggu proses pencucian
   const MembershipPlan({
     required this.tier,
     required this.price,
@@ -65,6 +66,7 @@ class MembershipPlan {
     this.freeVehicles = const {},
     this.snack = false,
     this.vip = false,
+    this.massage = false,
   });
 
   String get name => tier.label;
@@ -72,8 +74,7 @@ class MembershipPlan {
   bool get hasFreeWash => freePackage.isNotEmpty && freeWashQuota > 0;
 
   /// Mis. "Motor & Mobil" atau "Semua kendaraan".
-  String get freeVehiclesLabel =>
-      freeVehicles.length >= VehicleType.values.length ? 'Semua kendaraan' : freeVehicles.map((v) => v.label).join(' & ');
+  String get freeVehiclesLabel => freeVehicles.map((v) => v.label).join(' & ');
 
   /// Mis. "2x Express Wash (Motor & Mobil)".
   String get freeWashLabel => hasFreeWash ? '${freeWashQuota}x $freePackage Wash ($freeVehiclesLabel)' : 'Tidak ada';
@@ -82,6 +83,7 @@ class MembershipPlan {
   List<String> get visitPerks => [
         if (snack) 'Makanan & minuman gratis',
         if (vip) 'Ruang tunggu VIP (TV & AC)',
+        if (massage) 'Kursi pijat saat menunggu',
       ];
   String get durationLabel => durationDays % 30 == 0 ? '${durationDays ~/ 30} bulan' : '$durationDays hari';
 
@@ -104,6 +106,7 @@ class MembershipPlan {
         },
         snack: (j['snack'] ?? false) as bool,
         vip: (j['vip'] ?? false) as bool,
+        massage: (j['massage'] ?? false) as bool,
       );
 }
 
@@ -154,11 +157,13 @@ const kMembershipPlans = <MembershipPlan>[
     popular: true,
     freePackage: 'Reguler',
     freeWashQuota: 4,
-    freeVehicles: {VehicleType.motor, VehicleType.mobil, VehicleType.suv},
+    freeVehicles: {VehicleType.motor, VehicleType.mobil},
     snack: true,
+    vip: true,
     benefits: [
-      'Gratis Reguler Wash 1x/minggu (Semua kendaraan)',
+      'Gratis Reguler Wash 1x/minggu (Motor & Mobil)',
       'Makanan & minuman gratis saat cuci',
+      'Ruang tunggu VIP (TV & AC)',
       'Diskon jasa layanan 20%',
       'Prioritas booking tinggi',
       'Voucher eksklusif Gold tiap minggu',
@@ -174,13 +179,15 @@ const kMembershipPlans = <MembershipPlan>[
     promo: 'Voucher Platinum Rp 50.000 / minggu',
     freePackage: 'Detailing',
     freeWashQuota: 4,
-    freeVehicles: {VehicleType.motor, VehicleType.mobil, VehicleType.suv},
+    freeVehicles: {VehicleType.motor, VehicleType.mobil},
     snack: true,
     vip: true,
+    massage: true,
     benefits: [
-      'Gratis Detailing Wash 1x/minggu (Semua kendaraan)',
+      'Gratis Detailing Wash 1x/minggu (Motor & Mobil)',
       'Makanan & minuman gratis saat cuci',
       'Ruang tunggu VIP (TV & AC)',
+      'Kursi pijat saat menunggu proses pencucian',
       'Diskon jasa layanan 30%',
       'Prioritas booking utama',
       'Voucher eksklusif Platinum tiap minggu',

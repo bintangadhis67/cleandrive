@@ -183,7 +183,7 @@ class MembershipHomeCard extends StatelessWidget {
                     if (active) ...[
                       Text(t!.label, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800, height: 1)),
                       const SizedBox(height: 6),
-                      Text('Aktif hingga ${fmtDate.format(cur!.endDate!)}  •  Diskon layanan ${cur.plan.discountPct}%',
+                      Text('Aktif hingga ${fmtDate.format(cur.endDate!)}  •  Diskon layanan ${cur.plan.discountPct}%',
                           style: const TextStyle(color: _creamMuted, fontSize: 12.5)),
                     ] else ...[
                       const Text('Dapatkan benefit eksklusif', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
@@ -466,6 +466,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
                 row('Cuci gratis', (p) => p.hasFreeWash ? '${p.freeWashQuota}x ${p.freePackage}\n(${p.freeVehiclesLabel})\nmaks. 1x/minggu' : '-'),
                 row('Makanan & minuman', (p) => p.snack ? 'Gratis' : '-'),
                 row('Ruang tunggu VIP', (p) => p.vip ? 'Ya' : '-'),
+                row('Kursi pijat', (p) => p.massage ? 'Ya' : '-'),
                 row('Klaim voucher', (p) => '${p.tier.dailyVoucherLimit}x / hari'),
                 row('Diskon layanan', (p) => '${p.discountPct}%'),
                 row('Prioritas booking', (p) => p.priority),
@@ -706,7 +707,7 @@ class _MembershipCheckoutScreenState extends State<MembershipCheckoutScreen> {
           final cur = info.current;
           final renew = info.hasActive && cur!.tier == widget.tier;
           final replace = info.hasActive && cur!.tier != widget.tier;
-          final start = renew ? cur!.endDate! : DateTime.now();
+          final start = renew ? cur.endDate! : DateTime.now();
           final end = start.add(Duration(days: p.durationDays));
           return Scaffold(
             appBar: AppBar(title: Text(renew ? 'Perpanjang Membership' : 'Checkout Membership')),
@@ -755,7 +756,7 @@ class _MembershipCheckoutScreenState extends State<MembershipCheckoutScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'Membership ${cur!.tier.label} yang masih aktif sampai ${fmtDate.format(cur.endDate!)} akan diganti paket ${p.name} mulai hari ini.',
+                              'Membership ${cur.tier.label} yang masih aktif sampai ${fmtDate.format(cur.endDate!)} akan diganti paket ${p.name} mulai hari ini.',
                               style: const TextStyle(fontSize: 13, height: 1.35),
                             ),
                           ),

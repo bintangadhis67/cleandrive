@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -250,7 +251,6 @@ Widget kv(String k, String v, {bool bold = false, Color? valueColor}) => Padding
 IconData vehicleIcon(VehicleType v) => switch (v) {
       VehicleType.motor => Icons.two_wheeler,
       VehicleType.mobil => Icons.directions_car_filled,
-      VehicleType.suv => Icons.airport_shuttle,
     };
 
 /// Gambar layanan kecil (dipakai di daftar pesanan dan kartu).
@@ -318,11 +318,8 @@ double pagePad(double width) {
   return extra > 0 ? base + extra : base;
 }
 
-/// Jumlah kolom menurut lebar yang tersedia (minimal 1, maksimal 4).
-int colsFor(double width, {double minWidth = 340}) {
-  final n = (width / minWidth).floor();
-  return n < 1 ? 1 : (n > 4 ? 4 : n);
-}
+/// Jumlah kolom. Selalu 1: semua daftar disusun ke bawah dan penuh selebar layar (tidak menyamping).
+int colsFor(double width, {double minWidth = 340}) => 1;
 
 /// Memusatkan isi dengan lebar maksimum (opsional). Bawaan: penuh.
 class PageBox extends StatelessWidget {
@@ -353,7 +350,8 @@ class PageList extends StatelessWidget {
       });
 }
 
-/// Dua panel berdampingan di layar lebar, bertumpuk di HP.
+/// Panel kiri lalu kanan disusun KE BAWAH (satu kolom penuh) di semua ukuran layar: HP, laptop, desktop.
+/// Parameter flex, gap, dan breakpoint dipertahankan agar pemanggil lama tetap valid.
 class TwoPane extends StatelessWidget {
   final List<Widget> left, right;
   final int leftFlex, rightFlex;
@@ -370,16 +368,8 @@ class TwoPane extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(builder: (context, c) {
-        if (c.maxWidth >= breakpoint) {
-          return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(flex: leftFlex, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: left)),
-            SizedBox(width: gap),
-            Expanded(flex: rightFlex, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: right)),
-          ]);
-        }
-        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [...left, ...right]);
-      });
+  Widget build(BuildContext context) =>
+      Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [...left, ...right]);
 }
 
 /// Menyusun widget dalam beberapa kolom (tinggi tiap baris mengikuti isinya).
@@ -527,39 +517,449 @@ class ErrorState extends StatelessWidget {
 }
 
 
-/// Motif dekoratif (lingkaran, cincin, titik, dan garis kecepatan) untuk mengisi area kartu yang kosong.
-/// [flip] = true menaruh motif di sisi kiri.
+// ---------------------------------------------------------------------------
+// MOTIF BERTEMA CUCI MOBIL (kartu Coins, Membership, dan Profil)
+// Dibuat dengan kode (tanpa gambar): siluet mobil, busa, tetesan air, kilau, ban, tetes oli, dan jalan.
+// ---------------------------------------------------------------------------
+class _Ink {
+  final Paint fill, glass, line, soft, drop, spark, bubble;
+  _Ink(Color c)
+      : fill = Paint()..color = c.withValues(alpha: .08),
+        glass = Paint()..color = c.withValues(alpha: .14),
+        line = Paint()
+          ..color = c.withValues(alpha: .20)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.6
+          ..strokeCap = StrokeCap.round,
+        soft = Paint()
+          ..color = c.withValues(alpha: .13)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.2
+          ..strokeCap = StrokeCap.round,
+        drop = Paint()..color = c.withValues(alpha: .24),
+        spark = Paint()..color = c.withValues(alpha: .42),
+        bubble = Paint()
+          ..color = c.withValues(alpha: .28)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.3;
+}
+
+Path _dropPath(Offset c, double s) => Path()
+  ..moveTo(c.dx, c.dy - s)
+  ..cubicTo(c.dx + s * .9, c.dy - s * .1, c.dx + s * .7, c.dy + s * .9, c.dx, c.dy + s * .9)
+  ..cubicTo(c.dx - s * .7, c.dy + s * .9, c.dx - s * .9, c.dy - s * .1, c.dx, c.dy - s)
+  ..close();
+
+Path _sparkPath(Offset c, double r) => Path()
+  ..moveTo(c.dx, c.dy - r)
+  ..quadraticBezierTo(c.dx, c.dy, c.dx + r, c.dy)
+  ..quadraticBezierTo(c.dx, c.dy, c.dx, c.dy + r)
+  ..quadraticBezierTo(c.dx, c.dy, c.dx - r, c.dy)
+  ..quadraticBezierTo(c.dx, c.dy, c.dx, c.dy - r)
+  ..close();
+
+Path _starPath(Offset c, double r) {
+  final path = Path();
+  for (var i = 0; i < 10; i++) {
+    final a = -math.pi / 2 + i * math.pi / 5;
+    final rr = i.isEven ? r : r * .45;
+    final o = Offset(c.dx + math.cos(a) * rr, c.dy + math.sin(a) * rr);
+    if (i == 0) {
+      path.moveTo(o.dx, o.dy);
+    } else {
+      path.lineTo(o.dx, o.dy);
+    }
+  }
+  path.close();
+  return path;
+}
+
+Path _diamondPath(Offset c, double r) => Path()
+  ..moveTo(c.dx, c.dy - r)
+  ..lineTo(c.dx + r * .8, c.dy - r * .25)
+  ..lineTo(c.dx, c.dy + r)
+  ..lineTo(c.dx - r * .8, c.dy - r * .25)
+  ..close();
+
+void _dashed(Canvas canvas, Offset a, Offset b, Paint paint, {double dash = 10, double gap = 8}) {
+  final dx = b.dx - a.dx, dy = b.dy - a.dy;
+  final len = math.sqrt(dx * dx + dy * dy);
+  if (len < 1) return;
+  final ux = dx / len, uy = dy / len;
+  var t = 0.0;
+  while (t < len) {
+    final e = t + dash > len ? len : t + dash;
+    canvas.drawLine(Offset(a.dx + ux * t, a.dy + uy * t), Offset(a.dx + ux * e, a.dy + uy * e), paint);
+    t += dash + gap;
+  }
+}
+
+void _wheel(Canvas canvas, Offset c, double r, _Ink ink, {int spokes = 5, bool tread = false}) {
+  canvas.drawCircle(c, r, ink.fill);
+  canvas.drawCircle(c, r, ink.line);
+  canvas.drawCircle(c, r * .72, ink.soft);
+  canvas.drawCircle(c, r * .26, ink.line);
+  for (var i = 0; i < spokes; i++) {
+    final a = i * 2 * math.pi / spokes;
+    canvas.drawLine(
+      Offset(c.dx + math.cos(a) * r * .30, c.dy + math.sin(a) * r * .30),
+      Offset(c.dx + math.cos(a) * r * .70, c.dy + math.sin(a) * r * .70),
+      ink.soft,
+    );
+  }
+  if (tread) {
+    for (var i = 0; i < 28; i++) {
+      final a = i * 2 * math.pi / 28;
+      canvas.drawLine(
+        Offset(c.dx + math.cos(a) * r * .88, c.dy + math.sin(a) * r * .88),
+        Offset(c.dx + math.cos(a) * r, c.dy + math.sin(a) * r),
+        ink.line,
+      );
+    }
+  }
+}
+
+/// Siluet mobil (tampak samping) dalam kotak satuan 0..1; [p] memetakan (u, v) ke posisi layar.
+void _car(Canvas canvas, Offset Function(double, double) p, double cH, _Ink ink) {
+  final body = Path();
+  void mv(double u, double v) {
+    final o = p(u, v);
+    body.moveTo(o.dx, o.dy);
+  }
+
+  void ln(double u, double v) {
+    final o = p(u, v);
+    body.lineTo(o.dx, o.dy);
+  }
+
+  void qd(double cu, double cv, double u, double v) {
+    final c = p(cu, cv), o = p(u, v);
+    body.quadraticBezierTo(c.dx, c.dy, o.dx, o.dy);
+  }
+
+  Path poly(List<List<double>> pts) {
+    final path = Path();
+    for (var i = 0; i < pts.length; i++) {
+      final o = p(pts[i][0], pts[i][1]);
+      if (i == 0) {
+        path.moveTo(o.dx, o.dy);
+      } else {
+        path.lineTo(o.dx, o.dy);
+      }
+    }
+    path.close();
+    return path;
+  }
+
+  mv(.03, .66);
+  ln(.03, .52);
+  qd(.03, .46, .10, .44);
+  ln(.26, .40);
+  qd(.34, .14, .50, .12);
+  ln(.66, .12);
+  qd(.80, .14, .88, .40);
+  ln(.95, .44);
+  qd(.98, .48, .98, .56);
+  ln(.98, .66);
+  body.close();
+  canvas.drawPath(body, ink.fill);
+
+  final front = poly(const [[.30, .40], [.37, .22], [.47, .17], [.47, .40]]);
+  final rear = poly(const [[.53, .40], [.53, .17], [.64, .17], [.76, .25], [.82, .40]]);
+  canvas.drawPath(front, ink.glass);
+  canvas.drawPath(rear, ink.glass);
+  canvas.drawPath(body, ink.line);
+  canvas.drawLine(p(.50, .16), p(.50, .46), ink.soft);
+  canvas.drawLine(p(.56, .30), p(.62, .30), ink.line);
+  canvas.drawLine(p(.05, .60), p(.97, .60), ink.soft);
+  canvas.drawOval(Rect.fromPoints(p(.92, .47), p(.985, .54)), ink.spark);
+  canvas.drawOval(Rect.fromPoints(p(.03, .50), p(.065, .56)), ink.drop);
+
+  final r = cH * .17;
+  _wheel(canvas, p(.24, .68), r, ink);
+  _wheel(canvas, p(.76, .68), r, ink);
+}
+
+void _foam(Canvas canvas, Offset Function(double, double) p, _Ink ink, double k) {
+  const bubbles = [
+    [.46, -.04, 7.0],
+    [.56, -.16, 9.0],
+    [.67, -.06, 6.0],
+    [.38, .03, 4.5],
+    [.76, .07, 4.5],
+    [.52, -.32, 4.0],
+    [.63, -.30, 5.5],
+    [.30, .11, 3.5],
+    [.84, -.12, 3.5],
+  ];
+  for (final b in bubbles) {
+    final c = p(b[0], b[1]);
+    final r = b[2] * k;
+    canvas.drawCircle(c, r, ink.bubble);
+    canvas.drawCircle(Offset(c.dx - r * .3, c.dy - r * .3), r * .2, ink.spark);
+  }
+}
+
+void _dropsAndSparks(Canvas canvas, Offset Function(double, double) p, _Ink ink, double k) {
+  const drops = [
+    [-.30, -.40, 5.0],
+    [.05, -.62, 6.0],
+    [.30, -.78, 5.0],
+    [.58, -.70, 6.5],
+    [.82, -.50, 5.0],
+    [1.02, -.80, 5.5],
+    [1.12, -.30, 4.5],
+    [-.10, -.15, 4.5],
+  ];
+  for (final d in drops) {
+    canvas.drawPath(_dropPath(p(d[0], d[1]), d[2] * k), ink.drop);
+  }
+  const sparks = [
+    [.20, -.55, 8.0],
+    [.78, -.80, 7.0],
+    [1.05, -.52, 6.0],
+    [-.22, -.78, 5.0],
+    [.50, -.58, 4.5],
+  ];
+  for (final s in sparks) {
+    canvas.drawPath(_sparkPath(p(s[0], s[1]), s[2] * k), ink.spark);
+  }
+}
+
+/// Motif untuk kartu Coins dan Membership. [theme]: 0 umum, 1 koin (Coins), 2 permata dan bintang (Membership).
+/// [flip] = true memindahkan motif ke sisi kiri (mobil menghadap kiri). [car] = false menyembunyikan mobil.
 class MotifPainter extends CustomPainter {
   final Color color;
   final bool flip;
-  const MotifPainter(this.color, {this.flip = false});
+  final bool car;
+  final int theme;
+  const MotifPainter(this.color, {this.flip = false, this.car = true, this.theme = 0});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final fill = Paint()..color = color.withValues(alpha: .08);
-    final ring = Paint()
-      ..color = color.withValues(alpha: .16)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    final dot = Paint()..color = color.withValues(alpha: .35);
-    final sgn = flip ? 1.0 : -1.0;
-    final x = flip ? 0.0 : size.width;
-    final r = size.shortestSide;
-    canvas.drawCircle(Offset(x, size.height * .12), r * .62, fill);
-    canvas.drawCircle(Offset(x, size.height * .12), r * .42, ring);
-    canvas.drawCircle(Offset(x + sgn * size.width * .10, size.height * .98), r * .30, fill);
-    for (var i = 0; i < 3; i++) {
-      final y = size.height * (.52 + i * .11);
-      final x0 = x + sgn * size.width * (.06 + i * .04);
-      canvas.drawLine(Offset(x0, y), Offset(x0 + sgn * size.width * (.24 - i * .05), y - 10), ring..strokeCap = StrokeCap.round);
+    final w = size.width, h = size.height;
+    if (w < 90 || h < 60) return;
+    canvas.clipRect(Offset.zero & size);
+    final ink = _Ink(color);
+    final dense = w >= 260;
+
+    var cH = h * .34;
+    if (cH > 86) cH = 86;
+    var cW = cH / .38;
+    final maxW = w < 500 ? w * .34 : w * .40;
+    if (cW > maxW) {
+      cW = maxW;
+      cH = cW * .38;
     }
-    canvas.drawCircle(Offset(x + sgn * size.width * .30, size.height * .22), 2.6, dot);
-    canvas.drawCircle(Offset(x + sgn * size.width * .18, size.height * .40), 2, dot);
-    canvas.drawCircle(Offset(x + sgn * size.width * .42, size.height * .36), 1.8, dot);
+    final y0 = h * .12 + cH * .65;
+    final x0 = flip ? w * .05 : w - cW - w * .05;
+    Offset p(double u, double v) {
+      final uu = flip ? 1 - u : u;
+      return Offset(x0 + uu * cW, y0 + v * cH);
+    }
+
+    // Tetesan air dan kilau (selalu), lalu gelombang.
+    _dropsAndSparks(canvas, p, ink, 1);
+    final wave = Path()
+      ..moveTo(p(-.12, 1.02).dx, p(-.12, 1.02).dy)
+      ..quadraticBezierTo(p(.5, 1.30).dx, p(.5, 1.30).dy, p(1.08, .86).dx, p(1.08, .86).dy);
+    canvas.drawPath(wave, ink.soft);
+    if (!dense) return;
+
+    // Garis diagonal tipis di sudut.
+    final stripe = Paint()
+      ..color = color.withValues(alpha: .04)
+      ..strokeWidth = 10;
+    for (var i = 0; i < 3; i++) {
+      final xa = w * (.90 + i * .045), xb = w * (.80 + i * .045);
+      canvas.drawLine(Offset(flip ? w - xa : xa, 0), Offset(flip ? w - xb : xb, h * .6), stripe);
+    }
+
+    // Jalan putus-putus dan gelombang kedua.
+    _dashed(canvas, p(-.60, 1.10), p(1.20, 1.10), ink.soft, dash: 10, gap: 8);
+    final wave2 = Path()
+      ..moveTo(p(-.20, 1.16).dx, p(-.20, 1.16).dy)
+      ..quadraticBezierTo(p(.5, 1.40).dx, p(.5, 1.40).dy, p(1.15, .96).dx, p(1.15, .96).dy);
+    canvas.drawPath(wave2, ink.line);
+
+    // Garis kecepatan di belakang mobil.
+    const lens = [.46, .34, .24, .16];
+    const ys = [.30, .44, .58, .72];
+    for (var i = 0; i < 4; i++) {
+      canvas.drawLine(p(-.12 - lens[i], ys[i]), p(-.12, ys[i]), ink.soft);
+    }
+
+    if (car) {
+      _car(canvas, p, cH, ink);
+      _foam(canvas, p, ink, 1);
+    }
+
+    // Hiasan sesuai tema.
+    if (theme == 1) {
+      const coins = [
+        [-.42, -.58, 11.0],
+        [1.14, -.62, 9.0],
+        [-.05, -.92, 7.0],
+      ];
+      for (final c in coins) {
+        final o = p(c[0], c[1]);
+        final r = c[2];
+        canvas.drawCircle(o, r, ink.fill);
+        canvas.drawCircle(o, r, ink.line);
+        canvas.drawCircle(o, r * .68, ink.soft);
+        canvas.drawLine(Offset(o.dx, o.dy - r * .38), Offset(o.dx, o.dy + r * .38), ink.line);
+      }
+    } else if (theme == 2) {
+      const gems = [
+        [-.40, -.55, 10.0],
+        [1.12, -.60, 8.0],
+      ];
+      for (final g in gems) {
+        final path = _diamondPath(p(g[0], g[1]), g[2]);
+        canvas.drawPath(path, ink.glass);
+        canvas.drawPath(path, ink.line);
+      }
+      const stars = [
+        [.15, -.92, 8.0],
+        [.92, -.95, 6.0],
+      ];
+      for (final s in stars) {
+        final path = _starPath(p(s[0], s[1]), s[2]);
+        canvas.drawPath(path, ink.glass);
+        canvas.drawPath(path, ink.line);
+      }
+    }
   }
 
   @override
-  bool shouldRepaint(covariant MotifPainter old) => old.color != color || old.flip != flip;
+  bool shouldRepaint(covariant MotifPainter old) =>
+      old.color != color || old.flip != flip || old.car != car || old.theme != theme;
+}
+
+/// Motif kartu Profil: pemandangan lebih lengkap. Kanan: mobil berbusa dengan tetesan dan kilau.
+/// Kiri: ban, tetes oli, busa, dan semprotan air. Bawah: jalan putus-putus dan gelombang berwarna [accent].
+class ProfileMotifPainter extends CustomPainter {
+  final Color color;
+  final Color accent;
+  const ProfileMotifPainter(this.color, this.accent);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    if (w < 120 || h < 80) return;
+    canvas.clipRect(Offset.zero & size);
+    final ink = _Ink(color);
+    final warm = _Ink(accent);
+
+    // Jalan dan gelombang di bagian bawah (lebar penuh).
+    _dashed(canvas, Offset(w * .02, h * .94), Offset(w * .98, h * .94), ink.soft, dash: 16, gap: 12);
+    final wave = Path()
+      ..moveTo(0, h * .86)
+      ..cubicTo(w * .25, h * .99, w * .55, h * .74, w, h * .90);
+    canvas.drawPath(
+      wave,
+      Paint()
+        ..color = accent.withValues(alpha: .38)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.2
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawPath(wave.shift(const Offset(0, 8)), ink.soft);
+
+    // Layar sempit (HP): hiasan ringan saja.
+    if (w < 600) {
+      final s = w / 400;
+      for (final d in const [
+        [.08, .18, 5.0],
+        [.90, .22, 5.0],
+        [.16, .42, 4.0],
+        [.84, .46, 4.0],
+      ]) {
+        canvas.drawPath(_dropPath(Offset(w * d[0], h * d[1]), d[2] * s), ink.drop);
+      }
+      for (final d in const [
+        [.12, .12, 7.0],
+        [.88, .14, 7.0],
+        [.92, .62, 5.0],
+        [.07, .60, 5.0],
+      ]) {
+        canvas.drawPath(_sparkPath(Offset(w * d[0], h * d[1]), d[2] * s), ink.spark);
+      }
+      return;
+    }
+
+    // ---- Kanan: mobil menghadap kiri ----
+    var cH = h * .40;
+    if (cH > 130) cH = 130;
+    var cW = cH / .38;
+    if (cW > w * .30) {
+      cW = w * .30;
+      cH = cW * .38;
+    }
+    final rx0 = w - cW - w * .06;
+    final ry0 = h * .36;
+    Offset rp(double u, double v) => Offset(rx0 + (1 - u) * cW, ry0 + v * cH);
+    _dropsAndSparks(canvas, rp, ink, 1.2);
+    const lens = [.50, .36, .26, .16];
+    const ys = [.30, .44, .58, .72];
+    for (var i = 0; i < 4; i++) {
+      canvas.drawLine(rp(-.12 - lens[i], ys[i]), rp(-.12, ys[i]), ink.soft);
+    }
+    _car(canvas, rp, cH, ink);
+    _foam(canvas, rp, ink, 1.3);
+
+    // ---- Kiri: ban besar, tetes oli, busa, semprotan ----
+    var tr = h * .30;
+    if (tr > 96) tr = 96;
+    final tc = Offset(w * .085, h * .66);
+    final k = tr / 96;
+    _wheel(canvas, tc, tr, ink, spokes: 6, tread: true);
+    canvas.drawCircle(tc, tr * .55, ink.soft);
+
+    final oil = _dropPath(Offset(w * .20, h * .30), 24 * k + 8);
+    canvas.drawPath(oil, Paint()..color = accent.withValues(alpha: .30));
+    canvas.drawPath(
+      oil,
+      Paint()
+        ..color = accent.withValues(alpha: .50)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.6,
+    );
+    canvas.drawCircle(Offset(w * .20 - 7 * k, h * .30 + 2 * k), 3.2 * k + 1, ink.spark);
+
+    const foam = [
+      [.95, -1.15, 9.0],
+      [1.25, -.85, 6.0],
+      [1.15, -1.45, 5.0],
+      [1.60, -1.05, 7.0],
+      [.65, -1.50, 4.0],
+      [1.90, -1.45, 4.5],
+    ];
+    for (final b in foam) {
+      final c = Offset(tc.dx + b[0] * tr, tc.dy + b[1] * tr);
+      final r = b[2] * (k + .3);
+      canvas.drawCircle(c, r, ink.bubble);
+      canvas.drawCircle(Offset(c.dx - r * .3, c.dy - r * .3), r * .2, ink.spark);
+    }
+
+    // Semprotan air dari sudut kiri atas.
+    for (var i = 0; i <= 9; i++) {
+      final t = i / 9;
+      final c = Offset(w * (.04 + .22 * t), h * (.08 + .26 * t * t + .06 * t));
+      canvas.drawPath(_dropPath(c, 3.0 + (1 - t) * 3.5), ink.drop);
+    }
+    for (final s in const [
+      [.27, .60, 8.0],
+      [.14, .20, 6.0],
+      [.33, .20, 5.0],
+      [.40, .46, 4.5],
+    ]) {
+      canvas.drawPath(_sparkPath(Offset(w * s[0], h * s[1]), s[2]), warm.spark);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant ProfileMotifPainter old) => old.color != color || old.accent != accent;
 }
 
 

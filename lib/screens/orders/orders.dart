@@ -94,15 +94,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                Expanded(child: Text(b.code, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13), overflow: TextOverflow.ellipsis)),
+                Expanded(child: Text(b.code, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15), overflow: TextOverflow.ellipsis)),
                 StatusChip(b),
               ]),
-              const SizedBox(height: 4),
-              Text(b.subtitle, style: const TextStyle(fontSize: 13)),
-              Text(fmtDateTime.format(b.slot), style: const TextStyle(fontSize: 12, color: kMuted)),
               const SizedBox(height: 6),
+              Text(b.subtitle, style: const TextStyle(fontSize: 15)),
+              const SizedBox(height: 2),
+              Text(fmtDateTime.format(b.slot), style: const TextStyle(fontSize: 13.5, color: kMuted)),
+              const SizedBox(height: 10),
               Row(children: [
-                Text(rp(b.total), style: const TextStyle(fontWeight: FontWeight.w800)),
+                Text(rp(b.total), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
                 const Spacer(),
                 if (b.review != null) ...[
                   const Icon(Icons.star_rounded, color: kGold, size: 18),
@@ -509,7 +510,7 @@ class _DetailScreenState extends State<DetailScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: (b.verified ? kStatusColors[3] : kStatusColors[0]).withOpacity(.14),
+                          color: (b.verified ? kStatusColors[3] : kStatusColors[0]).withValues(alpha: .14),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Row(mainAxisSize: MainAxisSize.min, children: [

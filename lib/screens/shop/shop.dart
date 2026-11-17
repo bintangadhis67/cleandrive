@@ -11,15 +11,16 @@ import '../home/customer.dart' show ConfirmOrderScreen;
 class ProductImage extends StatelessWidget {
   final Product p;
   final double? height;
-  const ProductImage(this.p, {super.key, this.height});
+  final int cacheWidth;
+  const ProductImage(this.p, {super.key, this.height, this.cacheWidth = 400});
 
   @override
   Widget build(BuildContext context) => Image.asset(
         p.image,
         height: height,
         fit: BoxFit.contain,
-        cacheWidth: 400,
-        errorBuilder: (_, __, ___) => Icon(p.category.icon, size: 40, color: kMuted),
+        cacheWidth: cacheWidth,
+        errorBuilder: (_, __, ___) => Icon(p.category.icon, size: (height ?? 100) * .4, color: kMuted),
       );
 }
 
@@ -119,11 +120,17 @@ class _ShopScreenState extends State<ShopScreen> {
         child: Text(t, style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w800)),
       );
 
+  void _openDetail(Product p) => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailScreen(p)));
+
   Widget _card(Product p) {
     final left = app.stockOf(p);
     final out = left <= 0;
     final low = !out && left < kLowStock; // stok di bawah 5: tampilkan jumlahnya
-    return Container(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => _openDetail(p),
+        child: Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
@@ -161,6 +168,8 @@ class _ShopScreenState extends State<ShopScreen> {
           ),
         ),
       ]),
+    ),
+      ),
     );
   }
 
@@ -293,6 +302,181 @@ class _ShopScreenState extends State<ShopScreen> {
   }
 }
 
+// ---------- DETAIL PRODUK ----------
+/// Halaman detail produk: gambar besar, nama, harga, stok, deskripsi, informasi, dan tombol keranjang.
+class ProductDetailScreen extends StatelessWidget {
+  final Product p;
+  const ProductDetailScreen(this.p, {super.key});
+
+  Widget _chip(String t, {Color bg = const Color(0x1410264C), Color fg = kNavy, IconData? icon}) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          if (icon != null) ...[Icon(icon, size: 15, color: fg), const SizedBox(width: 5)],
+          Text(t, style: TextStyle(color: fg, fontSize: 12.5, fontWeight: FontWeight.w700)),
+        ]),
+      );
+
+  Widget _infoRow(String k, String v) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 7),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          SizedBox(width: 130, child: Text(k, style: const TextStyle(color: kMuted, fontSize: 13.5))),
+          Expanded(child: Text(v, textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5))),
+        ]),
+      );
+
+  Widget _stepBtn(IconData icon, VoidCallback? onTap) => InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Padding(padding: const EdgeInsets.all(12), child: Icon(icon, size: 22, color: onTap == null ? kMuted : kRed)),
+      );
+
+  Widget _bottomBar(BuildContext context, int left) {
+    final q = app.qtyOf(p);
+    final out = left <= 0;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: kLine))),
+      child: SafeArea(
+        top: false,
+        child: Row(children: [
+          if (q > 0) ...[
+            Container(
+              height: 52,
+              decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: kRed, width: 1.5)),
+              child: Row(children: [
+                _stepBtn(Icons.remove_rounded, () => app.setQty(p, q - 1)),
+                SizedBox(width: 34, child: Center(child: Text('$q', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)))),
+                _stepBtn(Icons.add_rounded, q >= left ? null : () => app.setQty(p, q + 1)),
+              ]),
+            ),
+            const SizedBox(width: 12),
+          ],
+          Expanded(
+            child: q == 0
+                ? FilledButton.icon(
+                    style: FilledButton.styleFrom(minimumSize: const Size(0, 52)),
+                    onPressed: out ? null : () => app.setQty(p, 1),
+                    icon: Icon(out ? Icons.block_rounded : Icons.add_shopping_cart_rounded),
+                    label: Text(out ? 'Stok Habis' : 'Tambah ke Keranjang  •  ${rp(p.price)}'),
+                  )
+                : FilledButton.icon(
+                    style: FilledButton.styleFrom(minimumSize: const Size(0, 52)),
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CartScreen())),
+                    icon: const Icon(Icons.shopping_cart_rounded),
+                    label: Text('Lihat Keranjang  •  ${rp(app.cartTotal)}'),
+                  ),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(
+          title: const Text('Detail Produk'),
+          actions: [
+            ListenableBuilder(
+              listenable: app,
+              builder: (context, _) => Stack(alignment: Alignment.center, children: [
+                IconButton(
+                  icon: const Icon(Icons.shopping_cart_outlined),
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CartScreen())),
+                ),
+                if (app.cartCount > 0)
+                  Positioned(
+                    right: 6,
+                    top: 6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(color: kRed, borderRadius: BorderRadius.circular(10)),
+                      child: Text('${app.cartCount}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
+                    ),
+                  ),
+              ]),
+            ),
+          ],
+        ),
+        body: ListenableBuilder(
+          listenable: app,
+          builder: (context, _) {
+            final left = app.stockOf(p);
+            final out = left <= 0;
+            final low = !out && left < kLowStock;
+            return Column(children: [
+              Expanded(
+                child: LayoutBuilder(builder: (context, cons) {
+                  final pad = pagePad(cons.maxWidth);
+                  return ListView(padding: EdgeInsets.fromLTRB(pad, 4, pad, 20), children: [
+                    Panel(
+                      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                      child: SizedBox(
+                        height: 300,
+                        width: double.infinity,
+                        child: Opacity(opacity: out ? .45 : 1, child: ProductImage(p, height: 300, cacheWidth: 900)),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Panel(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Wrap(spacing: 8, runSpacing: 8, children: [
+                          _chip(p.category.label, icon: p.category.icon),
+                          if (p.vehicleTag.isNotEmpty) _chip('Untuk ${p.vehicleTag}', icon: Icons.directions_car_filled_rounded),
+                          if (out)
+                            _chip('Stok habis', bg: const Color(0x1AD92D35), fg: kError, icon: Icons.block_rounded)
+                          else if (low)
+                            _chip('Sisa $left', bg: const Color(0x1AE9A23B), fg: kWarn, icon: Icons.warning_amber_rounded)
+                          else
+                            _chip('Tersedia', bg: const Color(0x1A249B62), fg: kGreen, icon: Icons.check_circle_outline_rounded),
+                        ]),
+                        const SizedBox(height: 14),
+                        Text(p.name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, height: 1.2)),
+                        const SizedBox(height: 6),
+                        Text(p.desc, style: const TextStyle(color: kMuted, fontSize: 14)),
+                        const SizedBox(height: 12),
+                        Text(rp(p.price), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: kRed)),
+                      ]),
+                    ),
+                    const SizedBox(height: 14),
+                    Panel(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Text('Deskripsi Produk', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 10),
+                        Text(p.details, style: const TextStyle(fontSize: 14.5, height: 1.55)),
+                      ]),
+                    ),
+                    const SizedBox(height: 14),
+                    Panel(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Text('Informasi Produk', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 6),
+                        _infoRow('Nama produk', p.name),
+                        const Divider(height: 1, color: kLine),
+                        _infoRow('Kategori', p.category.label),
+                        const Divider(height: 1, color: kLine),
+                        _infoRow('Ringkasan', p.desc),
+                        if (p.vehicleTag.isNotEmpty) ...[
+                          const Divider(height: 1, color: kLine),
+                          _infoRow('Cocok untuk', p.vehicleTag),
+                        ],
+                        const Divider(height: 1, color: kLine),
+                        _infoRow('Ketersediaan', out ? 'Stok habis' : (low ? 'Sisa $left item' : 'Tersedia')),
+                        const Divider(height: 1, color: kLine),
+                        _infoRow('Harga', rp(p.price)),
+                      ]),
+                    ),
+                  ]);
+                }),
+              ),
+              _bottomBar(context, left),
+            ]);
+          },
+        ),
+      );
+}
+
 // ---------- KERANJANG ----------
 class CartScreen extends StatelessWidget {
   const CartScreen({super.key});
@@ -411,22 +595,22 @@ class ShopHomeSection extends StatelessWidget {
   const ShopHomeSection({super.key, this.onSeeAll});
 
   Widget _mini(BuildContext context, Product p) => SizedBox(
-        width: 124,
+        width: 176,
         child: Panel(
-          padding: const EdgeInsets.all(8),
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ShopScreen(initial: p.category))),
+          padding: const EdgeInsets.all(12),
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailScreen(p))),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Container(
-              height: 84,
+              height: 112,
               width: double.infinity,
               decoration: BoxDecoration(color: Colors.transparent, borderRadius: BorderRadius.circular(12)),
               padding: const EdgeInsets.all(4),
               child: ProductImage(p),
             ),
-            const SizedBox(height: 6),
-            Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, height: 1.2)),
+            const SizedBox(height: 8),
+            Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, height: 1.2)),
             const Spacer(),
-            Text(rp(p.price), style: const TextStyle(fontWeight: FontWeight.w800, color: kRed, fontSize: 12.5)),
+            Text(rp(p.price), style: const TextStyle(fontWeight: FontWeight.w800, color: kRed, fontSize: 15)),
           ]),
         ),
       );
@@ -443,11 +627,11 @@ class ShopHomeSection extends StatelessWidget {
             child: const Text('Lihat Semua'),
           )),
       SizedBox(
-        height: 172,
+        height: 236,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           itemCount: picks.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 10),
+          separatorBuilder: (_, __) => const SizedBox(width: 14),
           itemBuilder: (_, i) => _mini(context, picks[i]),
         ),
       ),

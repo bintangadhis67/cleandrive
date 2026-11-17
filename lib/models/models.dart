@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'catalog.dart';
 
 // ---------------- kendaraan dan paket ----------------
-enum VehicleType { motor, mobil, suv }
+enum VehicleType { motor, mobil }
 
 extension VehicleX on VehicleType {
-  String get label => const {'motor': 'Motor', 'mobil': 'Mobil', 'suv': 'SUV'}[name]!;
-  double get factor => const {'motor': 1.0, 'mobil': 2.0, 'suv': 2.5}[name]!;
+  String get label => const {'motor': 'Motor', 'mobil': 'Mobil'}[name]!;
+  double get factor => const {'motor': 1.0, 'mobil': 2.0}[name]!;
 }
 
 VehicleType vehicleFrom(String s) =>
@@ -98,9 +98,9 @@ class WashPackage {
 const packages = [
   WashPackage('Express', 'Cuci luar + keringkan', 25000, 20),
   WashPackage('Reguler', 'Cuci luar, vakum interior, semir ban', 50000, 40),
-  // Detailing memakai harga tetap per kendaraan: Motor Rp 100.000, Mobil Rp 250.000, SUV Rp 300.000.
+  // Detailing memakai harga tetap per kendaraan: Motor Rp 100.000, Mobil Rp 250.000.
   WashPackage('Detailing', 'Poles body, cuci mesin, interior deep clean', 150000, 120,
-      prices: {VehicleType.motor: 100000, VehicleType.mobil: 250000, VehicleType.suv: 300000}),
+      prices: {VehicleType.motor: 100000, VehicleType.mobil: 250000}),
 ];
 
 /// Jasa penggantian oli (harga jasa per jenis kendaraan; harga oli dihitung terpisah).

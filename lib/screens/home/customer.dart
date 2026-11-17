@@ -5,7 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/app_state.dart';
 import '../../core/theme.dart';
-import '../../data/repository.dart';
 import '../../models/catalog.dart';
 import '../../models/loyalty_models.dart';
 import '../../models/membership_models.dart';
@@ -219,24 +218,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _blob(Color c, double size) => Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: c),
-      );
-
   Widget _phoneShell() => Scaffold(
-        body: Stack(children: [
-          // Bola warna lembut di latar supaya halaman tidak terasa datar.
-          IgnorePointer(
-            child: Stack(children: [
-              Positioned(top: -90, right: -70, child: _blob(kRed.withValues(alpha: .07), 280)),
-              Positioned(top: 300, left: -110, child: _blob(kNavy.withValues(alpha: .05), 320)),
-              Positioned(bottom: 140, right: -90, child: _blob(kGold.withValues(alpha: .08), 260)),
-            ]),
-          ),
-          SafeArea(bottom: false, child: _body()),
-        ]),
+        body: SafeArea(bottom: false, child: _body()),
         bottomNavigationBar: _floatingNav(),
       );
 
@@ -278,10 +261,10 @@ class BerandaTab extends StatelessWidget {
   Widget _hero(BuildContext context) => NavyCard(
         radius: 26,
         child: SizedBox(
-          height: 210,
+          height: 290,
           width: double.infinity,
           child: Stack(children: [
-            Positioned(right: -4, bottom: 10, height: 140, child: Image.asset('assets/images/hero.png', fit: BoxFit.contain)),
+            Positioned(right: -4, bottom: 12, height: 175, child: Image.asset('assets/images/hero.png', fit: BoxFit.contain)),
             Positioned(left: 0, right: 0, bottom: 0, child: Container(height: 5, color: kRed)),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
@@ -290,11 +273,15 @@ class BerandaTab extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text('Drive\nCleaner,\nGo Further.',
-                      style: GoogleFonts.orbitron(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800, height: 1.2)),
+                      style: GoogleFonts.orbitron(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800, height: 1.2)),
                   FilledButton.icon(
-                    style: FilledButton.styleFrom(minimumSize: const Size(0, 46)),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(240, 60),
+                      padding: const EdgeInsets.symmetric(horizontal: 28),
+                      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                    ),
                     onPressed: () => onGo(2),
-                    icon: const Icon(Icons.event_available),
+                    icon: const Icon(Icons.event_available, size: 24),
                     label: const Text('Booking Sekarang'),
                   ),
                 ],
@@ -783,7 +770,7 @@ class _BookingScreenState extends State<BookingScreen> {
       const SizedBox(height: 10),
       Row(children: [
         for (final v in VehicleType.values)
-          Expanded(child: Padding(padding: EdgeInsets.only(right: v == VehicleType.suv ? 0 : 10), child: _vehicleTile(v))),
+          Expanded(child: Padding(padding: EdgeInsets.only(right: v == VehicleType.values.last ? 0 : 10), child: _vehicleTile(v))),
       ]),
       ListenableBuilder(
         listenable: app,
@@ -881,7 +868,6 @@ class _BookingScreenState extends State<BookingScreen> {
     return Column(children: [
       Expanded(
         child: LayoutBuilder(builder: (context, cons) {
-          final two = cons.maxWidth - pagePad(cons.maxWidth) * 2 >= 900; // dua kolom aktif di laptop (kPageMax = 1280)
           final pad = pagePad(cons.maxWidth);
           return ListView(padding: EdgeInsets.fromLTRB(pad, 8, pad, 16), children: [
             pageHeader(_isOil ? 'Ganti Oli' : 'Booking Cuci',
@@ -900,16 +886,9 @@ class _BookingScreenState extends State<BookingScreen> {
                     )
                   : const SizedBox.shrink(),
             ),
-            if (two)
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(flex: 6, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: left)),
-                const SizedBox(width: 24),
-                Expanded(flex: 5, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: right(0))),
-              ])
-            else ...[
-              ...left,
-              ...right(12),
-            ],
+            // Satu kolom ke bawah, penuh selebar layar.
+            ...left,
+            ...right(12),
           ]);
         }),
       ),
@@ -1119,7 +1098,7 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
             Text(
               ok
                   ? 'Sisa ${m.freeLeft} jatah ${plan.freePackage} Wash • maksimal 1x per minggu. Total jadi Rp 0 dan tidak bisa digabung voucher atau Coins.'
-                  : (block ?? ''),
+                  : block,
               style: const TextStyle(color: kMuted, fontSize: 12.5, height: 1.35),
             ),
           ]),
@@ -1127,7 +1106,7 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
         if (ok)
           Switch(
             value: _useFree,
-            activeColor: kGreen,
+            activeThumbColor: kGreen,
             onChanged: (v) => setState(() {
               _useFree = v;
               if (v) _voucher = null;
@@ -1143,43 +1122,68 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
       return;
     }
     final claimed = app.vouchers.where((v) => v.claimed).toList();
-    final picked = await showModalBottomSheet<Object>(
+    final picked = await showGeneralDialog<Object>(
       context: context,
-      showDragHandle: true,
-      constraints: const BoxConstraints(maxWidth: 640),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Pilih voucher', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 10),
-            if (claimed.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Text('Kamu belum punya voucher. Klaim voucher di beranda.', style: TextStyle(color: kMuted)),
+      barrierDismissible: true,
+      barrierLabel: 'Tutup',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 220),
+      transitionBuilder: (ctx, anim, _, child) => SlideTransition(
+        position: Tween<Offset>(begin: const Offset(0, -1), end: Offset.zero)
+            .animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+        child: child,
+      ),
+      // Pop up muncul di BAGIAN ATAS layar.
+      pageBuilder: (ctx, _, __) => SafeArea(
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Material(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(22),
+              clipBehavior: Clip.antiAlias,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: 640, maxHeight: MediaQuery.of(ctx).size.height * .8),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+                  child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      const Expanded(child: Text('Pilih voucher', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700))),
+                      IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close_rounded)),
+                    ]),
+                    const SizedBox(height: 6),
+                    if (claimed.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Text('Kamu belum punya voucher. Klaim voucher di beranda.', style: TextStyle(color: kMuted)),
+                      ),
+                    for (final v in claimed)
+                      Builder(builder: (_) {
+                        final reason = v.used
+                            ? 'Sudah dipakai'
+                            : (v.expired ? 'Kedaluwarsa' : (!v.eligible(_price) ? 'Min. transaksi ${rp(v.minTransaction)}' : null));
+                        return ListTile(
+                          enabled: reason == null,
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.local_offer_rounded, color: kRed),
+                          title: Text(v.code, style: const TextStyle(fontWeight: FontWeight.w700)),
+                          subtitle: Text(reason ?? 'Hemat ${rp(v.discountFor(_price))}'),
+                          trailing: _voucher?.id == v.id ? const Icon(Icons.check_circle, color: kRed) : null,
+                          onTap: reason == null ? () => Navigator.pop(ctx, v) : null,
+                        );
+                      }),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.block, color: kMuted),
+                      title: const Text('Tanpa voucher'),
+                      onTap: () => Navigator.pop(ctx, 'none'),
+                    ),
+                  ]),
+                ),
               ),
-            for (final v in claimed)
-              Builder(builder: (_) {
-                final reason = v.used
-                    ? 'Sudah dipakai'
-                    : (v.expired ? 'Kedaluwarsa' : (!v.eligible(_price) ? 'Min. transaksi ${rp(v.minTransaction)}' : null));
-                return ListTile(
-                  enabled: reason == null,
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.local_offer_rounded, color: kRed),
-                  title: Text(v.code, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: Text(reason ?? 'Hemat ${rp(v.discountFor(_price))}'),
-                  trailing: _voucher?.id == v.id ? const Icon(Icons.check_circle, color: kRed) : null,
-                  onTap: reason == null ? () => Navigator.pop(ctx, v) : null,
-                );
-              }),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.block, color: kMuted),
-              title: const Text('Tanpa voucher'),
-              onTap: () => Navigator.pop(ctx, 'none'),
             ),
-          ]),
+          ),
         ),
       ),
     );
@@ -1360,59 +1364,6 @@ class AkunTab extends StatelessWidget {
         onTap: onTap,
       );
 
-  Widget _statTile({
-    required IconData icon,
-    required Color accent,
-    required List<Color> colors,
-    required String label,
-    required String value,
-    required String hint,
-    required VoidCallback onTap,
-    Color valueColor = Colors.white,
-  }) =>
-      Expanded(
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(26),
-            gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: colors),
-            boxShadow: [BoxShadow(color: colors.last.withValues(alpha: .30), blurRadius: 20, offset: const Offset(0, 10))],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(26),
-            child: Material(
-              type: MaterialType.transparency,
-              child: InkWell(
-                onTap: onTap,
-                child: Stack(children: [
-                  Positioned.fill(child: CustomPaint(painter: MotifPainter(accent))),
-                  Positioned(right: -8, bottom: -12, child: Icon(icon, size: 84, color: Colors.white.withValues(alpha: .10))),
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(color: Colors.white.withValues(alpha: .16), shape: BoxShape.circle),
-                        child: Icon(icon, color: accent == kGold ? kGold : kCream, size: 21),
-                      ),
-                      const SizedBox(height: 14),
-                      Text(value,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: valueColor, fontWeight: FontWeight.w800, fontSize: 26, height: 1)),
-                      const SizedBox(height: 4),
-                      Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
-                      Text(hint, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _creamMuted, fontSize: 11.5)),
-                    ]),
-                  ),
-                ]),
-              ),
-            ),
-          ),
-        ),
-      );
-
-  /// Kartu profil: navy bergradasi dengan motif, avatar bercincin emas.
   Widget _profileCard(BuildContext context, String name, MembershipInfo mem) => Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(30),
@@ -1422,9 +1373,7 @@ class AkunTab extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(30),
           child: Stack(children: [
-            const Positioned.fill(child: CustomPaint(painter: MotifPainter(Colors.white))),
-            const Positioned.fill(child: CustomPaint(painter: MotifPainter(kRed, flip: true))),
-            Positioned(right: -10, top: -10, child: Icon(Icons.directions_car_filled_rounded, size: 120, color: Colors.white.withValues(alpha: .06))),
+            const Positioned.fill(child: CustomPaint(painter: ProfileMotifPainter(Colors.white, kRed))),
             SizedBox(
               width: double.infinity, // isi profil rata tengah
               child: Padding(
@@ -1507,7 +1456,6 @@ class AkunTab extends StatelessWidget {
         builder: (context, _) {
           final name = app.user ?? '';
           final mem = app.membership;
-          final memText = mem.hasActive ? mem.current!.tier.label : mem.status.label;
           return PageList(
             top: 16,
             bottom: 32,
@@ -1519,32 +1467,8 @@ class AkunTab extends StatelessWidget {
                 left: [
                   _profileCard(context, name, mem),
                   const SizedBox(height: 14),
-                  IntrinsicHeight(
-                      child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                    _statTile(
-                      icon: Icons.monetization_on_rounded,
-                      accent: kGold,
-                      colors: const [kNavySoft, kNavyDark],
-                      label: 'Coins saya',
-                      value: '${app.loyalty.balance}',
-                      hint: 'Streak ${app.loyalty.activeStreak} hari',
-                      valueColor: kGold,
-                      onTap: () => _push(context, const CoinsScreen()),
-                    ),
-                    const SizedBox(width: 12),
-                    _statTile(
-                      icon: mem.hasActive ? mem.current!.tier.icon : Icons.workspace_premium_rounded,
-                      accent: mem.hasActive ? mem.current!.tier.color : kRed,
-                      colors: [
-                        mem.hasActive ? mem.current!.tier.color : kRed,
-                        Color.lerp(mem.hasActive ? mem.current!.tier.color : kRed, kNavy, .7)!,
-                      ],
-                      label: 'Membership',
-                      value: memText,
-                      hint: mem.hasActive ? 'Hingga ${fmtDate.format(mem.current!.endDate!)}' : 'Lihat paket',
-                      onTap: () => openMembership(context),
-                    ),
-                  ])),
+                  // Kartu Coins + Membership sama persis dengan yang di Beranda.
+                  const RewardsHomeCard(),
                 ],
                 right: [
                   Panel(

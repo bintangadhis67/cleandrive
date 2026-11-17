@@ -137,7 +137,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
               Container(
                 width: 42,
                 height: 42,
-                decoration: BoxDecoration(color: n.type.color.withOpacity(.14), shape: BoxShape.circle),
+                decoration: BoxDecoration(color: n.type.color.withValues(alpha: .14), shape: BoxShape.circle),
                 child: Icon(n.type.icon, color: n.type.color, size: 22),
               ),
               const SizedBox(width: 12),

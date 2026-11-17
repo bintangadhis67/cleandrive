@@ -39,11 +39,6 @@ class VoucherHomeCard extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(20),
               child: Stack(children: [
-                Positioned(
-                  right: -28,
-                  top: -28,
-                  child: Container(width: 150, height: 150, decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0x2060BBE9))),
-                ),
                 // Gambar ilustrasi voucher (menggantikan ikon % polos).
                 Positioned(
                   right: 8,

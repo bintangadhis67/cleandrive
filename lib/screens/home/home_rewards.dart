@@ -34,8 +34,7 @@ class _RewardsHomeCardState extends State<RewardsHomeCard> {
     return InkWell(
       onTap: _openCoins,
       child: Stack(children: [
-        const Positioned.fill(child: CustomPaint(painter: MotifPainter(kGold))),
-        Positioned(right: -6, bottom: -10, child: Icon(Icons.monetization_on_rounded, size: 96, color: kGold.withValues(alpha: .13))),
+        const Positioned.fill(child: CustomPaint(painter: MotifPainter(kGold, theme: 1))),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -98,7 +97,7 @@ class _RewardsHomeCardState extends State<RewardsHomeCard> {
     final info = app.membership;
     final cur = info.current;
     final active = info.hasActive && cur != null;
-    final accent = active ? cur!.tier.color : kRed;
+    final accent = active ? cur.tier.color : kRed;
     return InkWell(
       onTap: () => openMembership(context),
       child: Stack(children: [
@@ -113,12 +112,7 @@ class _RewardsHomeCardState extends State<RewardsHomeCard> {
             ),
           ),
         ),
-        const Positioned.fill(child: CustomPaint(painter: MotifPainter(Colors.white))),
-        Positioned(
-          right: -6,
-          bottom: -10,
-          child: Icon(active ? cur!.tier.icon : Icons.workspace_premium_rounded, size: 96, color: Colors.white.withValues(alpha: .10)),
-        ),
+        const Positioned.fill(child: CustomPaint(painter: MotifPainter(Colors.white, theme: 2))),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 14, 16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -127,7 +121,7 @@ class _RewardsHomeCardState extends State<RewardsHomeCard> {
                 width: 30,
                 height: 30,
                 decoration: BoxDecoration(color: Colors.white.withValues(alpha: .16), shape: BoxShape.circle),
-                child: Icon(active ? cur!.tier.icon : Icons.workspace_premium_outlined, size: 17, color: kCream),
+                child: Icon(active ? cur.tier.icon : Icons.workspace_premium_outlined, size: 17, color: kCream),
               ),
               const SizedBox(width: 8),
               const Expanded(
@@ -135,12 +129,12 @@ class _RewardsHomeCardState extends State<RewardsHomeCard> {
               ),
             ]),
             const SizedBox(height: 12),
-            Text(active ? cur!.tier.label : 'Belum aktif',
+            Text(active ? cur.tier.label : 'Belum aktif',
                 maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800, height: 1.15)),
             const SizedBox(height: 6),
             Text(
               active
-                  ? 'Hingga ${fmtDate.format(cur!.endDate!)}'
+                  ? 'Hingga ${fmtDate.format(cur.endDate!)}'
                   : (info.status == MembershipStatus.pending ? 'Menunggu pembayaran' : 'Mulai ${rp(kMembershipPlans.first.price)}'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -155,7 +149,7 @@ class _RewardsHomeCardState extends State<RewardsHomeCard> {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: Colors.white.withValues(alpha: .35)),
               ),
-              child: Text(active ? 'Diskon ${cur!.plan.discountPct}% • Lihat' : 'Lihat Paket',
+              child: Text(active ? 'Diskon ${cur.plan.discountPct}% • Lihat' : 'Lihat Paket',
                   maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: kCream, fontWeight: FontWeight.w600, fontSize: 12.5)),
             ),
           ]),

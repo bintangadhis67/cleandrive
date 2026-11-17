@@ -20,6 +20,14 @@ Future<void> main() async {
   runApp(const CleanDriveApp());
 }
 
+/// Skala ukuran tampilan di laptop / desktop. TETAP (tidak bergantung pada zoom), jadi zoom Chrome
+/// (Ctrl + / Ctrl -) tetap berfungsi normal: tampilan = zoom Chrome x kDesktopScale.
+/// 0.8 cocok untuk layar Windows berskala 125%. Lebih kecil: turunkan (mis. 0.7). Lebih besar: naikkan (mis. 0.9 atau 1.0).
+/// HP / tablet kecil (lebar < 900 px) selalu 1.0 (tidak berubah).
+const double kDesktopScale = 0.8;
+
+double uiScaleFor(Size s) => s.width < 900 ? 1.0 : kDesktopScale;
+
 class CleanDriveApp extends StatelessWidget {
   const CleanDriveApp({super.key});
   @override
@@ -28,12 +36,37 @@ class CleanDriveApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: buildTheme(),
         scrollBehavior: const _AppScrollBehavior(),
-        // Batasi ukuran teks sistem supaya tampilan di HP tidak pecah.
+        // 1) Batasi ukuran teks sistem supaya tampilan di HP tidak pecah.
+        // 2) Di laptop/desktop ukuran tampilan diperkecil sedikit (kDesktopScale) agar normal di zoom 100%.
+        //    Admin dan HP tetap skala 1.0.
         builder: (context, child) {
           final mq = MediaQuery.of(context);
-          return MediaQuery(
-            data: mq.copyWith(textScaler: mq.textScaler.clamp(minScaleFactor: 0.9, maxScaleFactor: 1.15)),
-            child: child ?? const SizedBox.shrink(),
+          return ListenableBuilder(
+            listenable: app,
+            builder: (_, __) {
+              final scale = app.isAdmin ? 1.0 : uiScaleFor(mq.size);
+              final w = mq.size.width / scale;
+              final h = mq.size.height / scale;
+              // Susunan widget selalu sama (juga saat skala 1.0) agar navigasi tidak ter-reset.
+              return OverflowBox(
+                alignment: Alignment.topLeft,
+                minWidth: w,
+                maxWidth: w,
+                minHeight: h,
+                maxHeight: h,
+                child: Transform.scale(
+                  scale: scale,
+                  alignment: Alignment.topLeft,
+                  child: MediaQuery(
+                    data: mq.copyWith(
+                      size: Size(w, h),
+                      textScaler: mq.textScaler.clamp(minScaleFactor: 0.9, maxScaleFactor: 1.15),
+                    ),
+                    child: child ?? const SizedBox.shrink(),
+                  ),
+                ),
+              );
+            },
           );
         },
         home: const _Root(),

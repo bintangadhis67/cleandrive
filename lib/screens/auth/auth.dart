@@ -84,7 +84,7 @@ class _AuthScreenState extends State<AuthScreen> {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [kNavyDark.withOpacity(0.62), kNavyDark.withOpacity(0.40), kNavyDark.withOpacity(0.78)],
+              colors: [kNavyDark.withValues(alpha: 0.62), kNavyDark.withValues(alpha: 0.40), kNavyDark.withValues(alpha: 0.78)],
             ),
           ),
         ),
@@ -102,7 +102,7 @@ class _AuthScreenState extends State<AuthScreen> {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white.withOpacity(0.10),
+        fillColor: Colors.white.withValues(alpha: 0.10),
         hintStyle: const TextStyle(color: Colors.white60),
         errorStyle: const TextStyle(color: err),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),

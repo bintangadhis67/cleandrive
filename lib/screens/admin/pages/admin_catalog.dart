@@ -62,7 +62,7 @@ class _AdminCatalogPageState extends State<AdminCatalogPage> {
         child: AdminTable(
           pager: false,
           minWidth: 900,
-          cols: const [TCol('Paket', flex: 4), TCol('Durasi', flex: 2), TCol('Motor', flex: 2), TCol('Mobil', flex: 2), TCol('SUV', flex: 2), TCol('Pesanan', flex: 2), TCol('Aksi', flex: 2)],
+          cols: const [TCol('Paket', flex: 4), TCol('Durasi', flex: 2), TCol('Motor', flex: 2), TCol('Mobil', flex: 2), TCol('Pesanan', flex: 2), TCol('Aksi', flex: 2)],
           rows: [
             for (final p in packages)
               [
@@ -74,7 +74,6 @@ class _AdminCatalogPageState extends State<AdminCatalogPage> {
                 Text('${p.minutes} menit', style: const TextStyle(fontSize: 13)),
                 Text(rp(p.priceFor(VehicleType.motor)), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                 Text(rp(p.priceFor(VehicleType.mobil)), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                Text(rp(p.priceFor(VehicleType.suv)), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                 Text(fmtNum(_orders(p)), style: const TextStyle(fontSize: 13)),
                 leftCell(_actions('paket cuci')),
               ],
@@ -88,7 +87,6 @@ class _AdminCatalogPageState extends State<AdminCatalogPage> {
       StatGrid([
         MiniStat(Icons.two_wheeler, kBlue, 'Jasa ganti oli - Motor', rp(oilChangePackage.priceFor(VehicleType.motor)), sub: '${oilChangePackage.minutes} menit'),
         MiniStat(Icons.directions_car_filled_rounded, kRed, 'Jasa ganti oli - Mobil', rp(oilChangePackage.priceFor(VehicleType.mobil)), sub: '${oilChangePackage.minutes} menit'),
-        MiniStat(Icons.airport_shuttle, kGreen, 'Jasa ganti oli - SUV', rp(oilChangePackage.priceFor(VehicleType.suv)), sub: '${oilChangePackage.minutes} menit'),
         MiniStat(Icons.receipt_long_outlined, kGoldDeep, 'Pesanan ganti oli', fmtNum(_orders(oilChangePackage))),
       ]),
       const SizedBox(height: 16),
