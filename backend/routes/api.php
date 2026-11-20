@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CatalogController;
+use App\Http\Controllers\Api\PaymentController;
 use App\Http\Middleware\ForceJsonResponse;
 use Illuminate\Support\Facades\Route;
 
@@ -42,5 +43,11 @@ Route::middleware(ForceJsonResponse::class)->group(function () {
         Route::get('bookings/{id}', [BookingController::class, 'show'])->whereNumber('id');
         Route::post('bookings/{id}/cancel', [BookingController::class, 'cancel'])->whereNumber('id');
         Route::post('bookings/{id}/review', [BookingController::class, 'review'])->whereNumber('id');
+
+        // ---- pembayaran (sandbox) ----
+        Route::post('payments', [PaymentController::class, 'store']);
+        Route::get('payments/{id}', [PaymentController::class, 'show'])->whereNumber('id');
+        Route::post('payments/{id}/confirm', [PaymentController::class, 'confirm'])->whereNumber('id');
+        Route::post('payments/{id}/simulate-qris', [PaymentController::class, 'simulateQris'])->whereNumber('id');
     });
 });

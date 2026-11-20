@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Booking;
+use App\Models\Payment;
 use App\Models\Product;
 use App\Models\User;
 use Carbon\CarbonInterface;
@@ -88,6 +89,26 @@ class Presenter
                 'created_at' => self::dt($b->review->created_at),
             ] : null,
             'queue_position' => $queue,
+        ];
+    }
+
+    /** Dibaca Payment.fromJson di Flutter. */
+    public static function payment(Payment $p): array
+    {
+        return [
+            'id' => $p->id,
+            'trx' => $p->trx,
+            'booking_id' => $p->booking_id,
+            'method' => $p->method,
+            'amount' => (int) $p->amount,
+            'coins_used' => (int) $p->coins_used,
+            'coin_discount' => (int) $p->coin_discount,
+            'status' => $p->status,
+            'expires_at' => self::dt($p->expires_at),
+            'qr_string' => $p->qr_string,
+            'balance' => $p->balance === null ? null : (int) $p->balance,
+            'sandbox' => (bool) $p->sandbox,
+            'coins_earned' => (int) $p->coins_earned,
         ];
     }
 }
