@@ -91,6 +91,8 @@ class AppState extends ChangeNotifier {
     try {
       loyalty = await repo.loyalty();
       membership = await repo.membership();
+      // Tampilkan Coins & Membership terbaru SEGERA (jangan menunggu notifikasi selesai dimuat).
+      notifyListeners();
       await _fetchNotifications();
     } catch (_) {}
     notifyListeners();
@@ -355,10 +357,11 @@ class AppState extends ChangeNotifier {
     await refreshMeta();
   }
 
-  /// Batalkan langganan: benefit tetap aktif sampai tanggal berakhir, tidak ada refund.
-  Future<void> cancelMembership() async {
-    await repo.cancelMembership();
+  /// Batalkan langganan: membership langsung hilang dan uangnya dikembalikan. Mengembalikan nominal refund.
+  Future<int> cancelMembership() async {
+    final refund = await repo.cancelMembership();
     await refreshMeta();
+    return refund;
   }
 
   // ---------- garasi kendaraan ----------

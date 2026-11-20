@@ -98,6 +98,7 @@ class MockRepository implements Repository {
   final List<_MockUser> _users = [
     _MockUser('Admin CleanDrive', 'admin@cleandrive.com', '', 'admin123', isAdmin: true),
     _MockUser('Budi Santoso', 'budi@mail.com', '081200000002', '123456', createdAt: DateTime.now().subtract(const Duration(days: 12))),
+    _MockUser('Bintang', 'bintang@gmail.com', '', 'bin1234', createdAt: DateTime.now()),
   ];
   _MockUser? _me;
 
@@ -1047,18 +1048,50 @@ class MockRepository implements Repository {
     }
   }
 
+  /// Batalkan langganan: membership langsung dihapus dan seluruh pembayaran periode ini dikembalikan.
+  /// Mengembalikan nominal refund (Rp).
   @override
-  Future<void> cancelMembership() async {
+  Future<int> cancelMembership() async {
     await _lag(250);
     final email = _u.email;
     final r = _members[email];
     final m = _userMembership(email);
     if (r == null || m == null || !m.isActive) throw ApiException('Tidak ada membership aktif untuk dibatalkan.');
-    if (r.cancelAtEnd) throw ApiException('Langganan sudah dibatalkan.');
-    r.cancelAtEnd = true;
+
+    // Total pembayaran periode langganan ini (pembelian + perpanjangan) dikembalikan ke metode bayar terakhir.
+    final txs = _mTx.putIfAbsent(email, () => <MembershipTransaction>[]);
+    final paid = txs.where((t) => !t.refund && !t.createdAt.isBefore(r.start)).toList();
+    final refund = paid.fold<int>(0, (s, t) => s + t.amount);
+    final method = paid.isNotEmpty ? paid.last.method : PayMethod.qris;
+
+    // Pesanan cuci gratis yang belum diproses ikut dibatalkan, karena benefitnya sudah hilang.
+    for (final b in _bookings) {
+      if (_owner[b.id] == email && b.freeWash && !b.cancelled && b.status == 0) {
+        b.cancelled = true;
+        b.payStatus = 'unpaid';
+        _cancelledAt[b.id] = DateTime.now();
+        _freeRec.remove(b.id);
+      }
+    }
+
+    // Status membership langsung hilang.
+    _members.remove(email);
+
+    final now = DateTime.now();
+    txs.add(MembershipTransaction(
+      id: 'rf${++_memSeq}',
+      trx: 'RFD-${DateFormat('yyMMdd').format(now)}-${_memSeq.toString().padLeft(3, '0')}',
+      tier: r.tier,
+      amount: refund,
+      method: method,
+      renewal: false,
+      createdAt: now,
+      refund: true,
+    ));
     _notify(email, NotifType.membership, 'Langganan dibatalkan',
-        'Membership ${r.tier.label} tetap aktif sampai ${DateFormat('d MMM yyyy', 'id_ID').format(r.end)}. Tidak diperpanjang dan tidak ada pengembalian dana.',
+        'Membership ${r.tier.label} dihentikan. Dana Rp ${NumberFormat.decimalPattern('id_ID').format(refund)} dikembalikan ke ${method.label}.',
         target: 'membership', push: false);
+    return refund;
   }
 
   // ---------- garasi kendaraan ----------

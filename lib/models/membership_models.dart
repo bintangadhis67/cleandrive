@@ -322,6 +322,9 @@ class MembershipTransaction {
   final PayMethod method;
   final bool renewal;
   final DateTime createdAt;
+
+  /// true = pengembalian dana akibat langganan dibatalkan.
+  final bool refund;
   const MembershipTransaction({
     required this.id,
     required this.trx,
@@ -330,6 +333,7 @@ class MembershipTransaction {
     required this.method,
     required this.renewal,
     required this.createdAt,
+    this.refund = false,
   });
 }
 

@@ -168,9 +168,9 @@ class _AdminMembershipPageState extends State<AdminMembershipPage> {
                 TwoLine(fmtDate.format(r.tx.createdAt), fmtHm.format(r.tx.createdAt), false),
                 PersonCell(r.customer),
                 leftCell(StatusBadge(r.tx.tier.label, r.tx.tier.color)),
-                Text(r.tx.renewal ? 'Perpanjangan' : 'Pembelian baru', style: const TextStyle(fontSize: 13)),
+                Text(r.tx.refund ? 'Pengembalian dana' : (r.tx.renewal ? 'Perpanjangan' : 'Pembelian baru'), style: const TextStyle(fontSize: 13)),
                 Text(r.tx.method.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
-                Text(rp(r.tx.amount), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                Text(r.tx.refund ? '-${rp(r.tx.amount)}' : rp(r.tx.amount), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
               ],
           ],
         ),
@@ -185,7 +185,7 @@ class _AdminMembershipPageState extends State<AdminMembershipPage> {
         }
         final active = counts.values.fold<int>(0, (s, v) => s + v);
         final inactive = ov.customers.where((c) => c.membership != null && !c.hasActiveMembership).length;
-        final revenue = ov.memberTx.fold<int>(0, (s, r) => s + r.tx.amount);
+        final revenue = ov.memberTx.fold<int>(0, (s, r) => s + (r.tx.refund ? -r.tx.amount : r.tx.amount));
         Widget content = switch (_tab) {
           0 => _customers(ov),
           1 => _plans(context),

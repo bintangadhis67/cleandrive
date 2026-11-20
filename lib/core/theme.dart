@@ -79,6 +79,8 @@ ThemeData buildTheme() {
       scrolledUnderElevation: 0,
       surfaceTintColor: Colors.transparent,
       centerTitle: true,
+      iconTheme: const IconThemeData(color: kRed), // tombol kembali = bisa diklik = merah
+      actionsIconTheme: const IconThemeData(color: kRed),
       titleTextStyle: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700, color: kNavy, fontSize: 17),
     ),
     filledButtonTheme: FilledButtonThemeData(
@@ -92,15 +94,15 @@ ThemeData buildTheme() {
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: kNavy,
+        foregroundColor: kRed,
         minimumSize: const Size(0, 48),
-        side: const BorderSide(color: kLine),
+        side: const BorderSide(color: kRed, width: 1.2),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kRadiusButton)),
         textStyle: const TextStyle(fontWeight: FontWeight.w600),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
-      style: TextButton.styleFrom(foregroundColor: kNavy, textStyle: const TextStyle(fontWeight: FontWeight.w600)),
+      style: TextButton.styleFrom(foregroundColor: kRed, textStyle: const TextStyle(fontWeight: FontWeight.w600)),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,

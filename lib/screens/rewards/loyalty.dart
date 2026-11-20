@@ -5,6 +5,7 @@ import '../../core/theme.dart';
 import '../../models/loyalty_models.dart';
 import '../../models/models.dart';
 import '../../widgets/widgets.dart';
+import 'reward_ui.dart';
 
 // ===========================================================================
 // CLEANDRIVE COINS (reward gratis).
@@ -125,13 +126,13 @@ class _CoinsHomeCardState extends State<CoinsHomeCard> {
                         width: double.infinity,
                         child: FilledButton.icon(
                           style: FilledButton.styleFrom(
-                            backgroundColor: kCream,
-                            foregroundColor: kNavy,
+                            backgroundColor: kRed,
+                            foregroundColor: Colors.white,
                             minimumSize: const Size(0, 46),
                           ),
                           onPressed: _busy ? null : _checkIn,
                           icon: _busy
-                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: kNavy))
+                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
                               : const Icon(Icons.event_available_rounded),
                           label: Text('Check-in  +${l.rewardFor(l.todayIndex)} Coins'),
                         ),
@@ -156,6 +157,9 @@ class _CoinsScreenState extends State<CoinsScreen> {
   bool _busy = false;
   String? _claiming;
   int _tab = 0; // 0 perolehan, 1 penggunaan
+  bool _showAll = false; // hanya tampilan: tampilkan lebih dari 20 riwayat
+  final _earnKey = GlobalKey();
+  final _historyKey = GlobalKey();
 
   @override
   void initState() {
@@ -178,45 +182,81 @@ class _CoinsScreenState extends State<CoinsScreen> {
     showCoinToast(context, coins: r.coins, title: 'Promo diklaim!', subtitle: p.title);
   }
 
-  Widget _hero(LoyaltyInfo l) => Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(26),
-          gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [kNavyLight, kNavyDark]),
-          boxShadow: const [BoxShadow(color: Color(0x2910264C), blurRadius: 20, offset: Offset(0, 10))],
+  void _scrollTo(GlobalKey k) {
+    final c = k.currentContext;
+    if (c == null) return;
+    Scrollable.ensureVisible(c, duration: const Duration(milliseconds: 450), curve: Curves.easeOutCubic, alignment: .02);
+  }
+
+  // ---------------- KARTU SALDO ----------------
+  Widget _heroPill(IconData icon, String label, VoidCallback onTap) => SizedBox(
+        height: 44,
+        child: FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: kRed,
+            foregroundColor: Colors.white,
+            minimumSize: Size.zero,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            shape: const StadiumBorder(),
+            textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+          ),
+          onPressed: onTap,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(icon, size: 17),
+              const SizedBox(width: 6),
+              Text(label),
+            ]),
+          ),
         ),
-        padding: const EdgeInsets.all(20),
+      );
+
+  Widget _hero(LoyaltyInfo l) => RwHeroCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            const CoinBadge(size: 54),
-            const SizedBox(width: 14),
+            const CoinBadge(size: 62),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('Saldo Coins', style: TextStyle(color: _creamMuted, fontSize: 12.5)),
+                const Text('Saldo Coins', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500)),
                 Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  Text('${l.balance}',
-                      style: const TextStyle(color: kGold, fontSize: 40, fontWeight: FontWeight.w800, height: 1.1)),
-                  const SizedBox(width: 6),
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text('${l.balance}',
+                          style: const TextStyle(color: kRwGold, fontSize: 44, fontWeight: FontWeight.w800, height: 1.1)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   const Padding(
-                    padding: EdgeInsets.only(bottom: 6),
-                    child: Text('Coins', style: TextStyle(color: kCream, fontWeight: FontWeight.w600)),
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: Text('Coins', style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w600)),
                   ),
                 ]),
               ]),
             ),
           ]),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Wrap(spacing: 8, runSpacing: 8, children: [
             _chip(Icons.local_fire_department_rounded, 'Streak ${l.activeStreak} hari'),
             _chip(Icons.trending_up_rounded, 'Total diperoleh ${l.earned} Coins'),
           ]),
           const SizedBox(height: 14),
+          Row(children: [
+            Expanded(child: _heroPill(Icons.history_rounded, 'Riwayat Coins', () => _scrollTo(_historyKey))),
+            const SizedBox(width: 10),
+            Expanded(child: _heroPill(Icons.help_outline_rounded, 'Cara dapatkan Coins', () => _scrollTo(_earnKey))),
+          ]),
+          const SizedBox(height: 14),
           Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: .08), borderRadius: BorderRadius.circular(14)),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: .10), borderRadius: BorderRadius.circular(14)),
             child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Icon(Icons.info_outline_rounded, size: 17, color: _creamMuted),
-              SizedBox(width: 8),
-              Expanded(child: Text(kCoinsUsageNote, style: TextStyle(color: _creamMuted, fontSize: 12, height: 1.35))),
+              Icon(Icons.info_outline_rounded, size: 18, color: Colors.white),
+              SizedBox(width: 10),
+              Expanded(child: Text(kCoinsUsageNote, style: TextStyle(color: Colors.white, fontSize: 13, height: 1.45))),
             ]),
           ),
         ]),
@@ -224,105 +264,112 @@ class _CoinsScreenState extends State<CoinsScreen> {
 
   Widget _chip(IconData icon, String t) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(color: Colors.white.withValues(alpha: .12), borderRadius: BorderRadius.circular(20)),
+        decoration: BoxDecoration(color: const Color(0xFF5B8DEF).withValues(alpha: .30), borderRadius: BorderRadius.circular(20)),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 16, color: kGold),
+          Icon(icon, size: 16, color: kRwGold),
           const SizedBox(width: 6),
-          Text(t, style: const TextStyle(color: kCream, fontWeight: FontWeight.w600, fontSize: 12.5)),
+          Text(t, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12.5)),
         ]),
       );
 
+  // ---------------- CHECK-IN HARIAN ----------------
   Widget _dayTile(LoyaltyInfo l, int i) {
     final done = i < l.doneDays;
     final today = i == l.todayIndex && !l.checkedInToday;
     final bonus = i == kCheckInRewards.length - 1;
-    final fg = done ? Colors.white : kNavy;
+    final fg = done ? Colors.white : kRwText;
     return Expanded(
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 2),
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        margin: const EdgeInsets.symmetric(horizontal: 2.5),
+        padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 1),
         decoration: BoxDecoration(
-          color: done ? kGreen : (today ? const Color(0x1AC62026) : kBg),
+          color: done ? kRwGreen : kRwBlueSoft,
           borderRadius: BorderRadius.circular(12),
-          border: today ? Border.all(color: kRed, width: 1.5) : null,
+          border: today ? Border.all(color: kRwGold, width: 1.6) : null,
         ),
-        child: Column(children: [
-          Text('H${i + 1}', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: fg)),
-          const SizedBox(height: 4),
-          Icon(done ? Icons.check_circle_rounded : (bonus ? Icons.emoji_events_rounded : Icons.monetization_on_rounded),
-              size: 20, color: done ? Colors.white : kGold),
-          const SizedBox(height: 2),
-          Text('+${l.rewardFor(i)}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: fg)),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text('Hari ${i + 1}', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: fg)),
+          ),
+          const SizedBox(height: 7),
+          Icon(done ? Icons.check_circle_rounded : (bonus ? Icons.emoji_events_rounded : Icons.stars_rounded),
+              size: 22, color: done ? Colors.white : kRwGold),
+          const SizedBox(height: 7),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text('+${l.rewardFor(i)}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: fg)),
+          ),
         ]),
       ),
     );
   }
 
-  Widget _checkInPanel(LoyaltyInfo l) => Panel(
+  Widget _checkInPanel(LoyaltyInfo l) => RwCard(
+        padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            const Expanded(child: Text('Check-in Harian', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15))),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(color: const Color(0x1FE9AD35), borderRadius: BorderRadius.circular(14)),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.local_fire_department_rounded, size: 16, color: kGold),
-                const SizedBox(width: 4),
-                Text('${l.activeStreak} hari', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
-              ]),
+            const Expanded(
+              child: Text('Check-in Harian', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16.5, color: kRwText)),
             ),
+            RwPill('${l.activeStreak} hari', bg: kRwGoldLight, fg: kRwGoldDark, icon: Icons.local_fire_department_rounded),
           ]),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           const Text('Check-in setiap hari. Hari ke-7 adalah bonus streak terbesar. Jika terlewat sehari, streak mulai dari awal.',
-              style: TextStyle(color: kMuted, fontSize: 12.5, height: 1.35)),
+              style: TextStyle(color: kRwSub, fontSize: 12.5, height: 1.4)),
           const SizedBox(height: 14),
           Row(children: [for (var i = 0; i < 7; i++) _dayTile(l, i)]),
-          const SizedBox(height: 14),
-          RedButton(
+          const SizedBox(height: 16),
+          RwButton(
             l.checkedInToday ? 'Sudah check-in hari ini' : 'Check-in Sekarang  +${l.rewardFor(l.todayIndex)} Coins',
             icon: l.checkedInToday ? Icons.check_rounded : Icons.event_available_rounded,
+            height: 50,
             busy: _busy,
             onPressed: l.checkedInToday ? null : _checkIn,
           ),
         ]),
       );
 
+  // ---------------- CARA MENDAPATKAN COINS ----------------
   Widget _ruleRow(IconData icon, String title, String desc) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(color: kNavy, borderRadius: BorderRadius.circular(11)),
-            child: Icon(icon, color: kCream, size: 19),
-          ),
+          RwIconBox(icon, size: 40, bg: kRwNavy, fg: Colors.white, circle: false),
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-              Text(desc, style: const TextStyle(color: kMuted, fontSize: 12.5, height: 1.3)),
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5, color: kRwText)),
+              const SizedBox(height: 1),
+              Text(desc, style: const TextStyle(color: kRwSub, fontSize: 12.5, height: 1.4)),
             ]),
           ),
         ]),
       );
 
-  Widget _earnPanel() => Panel(
+  Widget _earnPanel() => RwCard(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _ruleRow(Icons.event_available_rounded, 'Check-in harian', '+${kCheckInRewards.first} sampai +${kCheckInRewards.last} Coins per hari sesuai streak 7 hari.'),
-          _ruleRow(Icons.emoji_events_rounded, 'Bonus streak', 'Check-in 7 hari berturut-turut: hari ke-7 memberi +${kCheckInRewards.last} Coins.'),
-          _ruleRow(Icons.receipt_long_rounded, 'Transaksi', 'Cuci dan ganti oli: Coins sesuai total pembayaran (cuci gratis membership tidak dapat Coins):'),
+          _ruleRow(Icons.event_available_rounded, 'Check-in harian',
+              '+${kCheckInRewards.first} sampai +${kCheckInRewards.last} Coins per hari sesuai streak 7 hari.'),
+          _ruleRow(Icons.emoji_events_rounded, 'Bonus streak',
+              'Check-in 7 hari berturut-turut: hari ke-7 memberi +${kCheckInRewards.last} Coins.'),
+          _ruleRow(Icons.receipt_long_rounded, 'Transaksi',
+              'Cuci dan ganti oli: Coins sesuai total pembayaran (cuci gratis membership tidak dapat Coins):'),
           Container(
-            margin: const EdgeInsets.only(left: 48, bottom: 6),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: kBg, borderRadius: BorderRadius.circular(12)),
+            margin: const EdgeInsets.only(left: 52, bottom: 6, top: 2),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: kRwBlueSoft, borderRadius: BorderRadius.circular(14)),
             child: Column(children: [
               for (final b in PayBand.values)
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Row(children: [
-                    SizedBox(width: 74, child: Text(b.label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5))),
-                    Expanded(child: Text(b.range, style: const TextStyle(color: kMuted, fontSize: 12))),
-                    Text('+${b.coins}', style: const TextStyle(fontWeight: FontWeight.w800, color: kRed)),
+                    SizedBox(
+                      width: 74,
+                      child: Text(b.label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: kRwText)),
+                    ),
+                    Expanded(child: Text(b.range, style: const TextStyle(color: kRwSub, fontSize: 12))),
+                    Text('+${b.coins}', style: const TextStyle(fontWeight: FontWeight.w800, color: kRwNavy)),
                   ]),
                 ),
             ]),
@@ -330,16 +377,19 @@ class _CoinsScreenState extends State<CoinsScreen> {
           _ruleRow(Icons.shopping_bag_rounded, 'Belanja di Toko',
               '+$kShopCoinReward Coins tiap kelipatan ${rp(kShopCoinStepRp)} yang dibayar (minimal ${rp(kShopCoinStepRp)}). Contoh: ${rp(kShopCoinStepRp * 2)} = +${shopCoinsFor(kShopCoinStepRp * 2)} Coins.'),
           _ruleRow(Icons.star_rounded, 'Ulasan', '+$kReviewCoins Coins, ditambah +$kReviewCommentBonus bila menulis komentar.'),
-          _ruleRow(Icons.card_giftcard_rounded, 'Promo khusus', 'Promo bulanan berganti tiap bulan. Bonus selamat datang, lengkapi profil, dan transaksi pertama hanya sekali per akun.'),
-          _ruleRow(Icons.local_offer_rounded, 'Tukar saat bayar', '1 Coin = Rp $kCoinValue, kelipatan $kCoinStep, maksimal $kCoinRedeemCapPct% dari total. Tidak untuk membeli membership.'),
+          _ruleRow(Icons.card_giftcard_rounded, 'Promo khusus',
+              'Promo bulanan berganti tiap bulan. Bonus selamat datang, lengkapi profil, dan transaksi pertama hanya sekali per akun.'),
+          _ruleRow(Icons.local_offer_rounded, 'Tukar saat bayar',
+              '1 Coin = Rp $kCoinValue, kelipatan $kCoinStep, maksimal $kCoinRedeemCapPct% dari total. Tidak untuk membeli membership.'),
         ]),
       );
 
-  Widget _promoPanel(LoyaltyInfo l) => Panel(
+  // ---------------- PROMO COINS ----------------
+  Widget _promoPanel(LoyaltyInfo l) => RwCard(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         child: Column(children: [
           for (var i = 0; i < l.promos.length; i++) ...[
-            if (i > 0) const Divider(height: 1),
+            if (i > 0) const Divider(height: 1, color: kRwLine),
             _promoRow(l.promos[i]),
           ],
         ]),
@@ -348,94 +398,103 @@ class _CoinsScreenState extends State<CoinsScreen> {
   Widget _promoRow(CoinPromo p) {
     Widget action;
     if (p.claimed) {
-      action = const Text('Diklaim', style: TextStyle(color: kGreen, fontWeight: FontWeight.w700, fontSize: 13));
+      action = const Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.check_circle_rounded, color: kRwGreen, size: 17),
+        SizedBox(width: 4),
+        Text('Diklaim', style: TextStyle(color: kRwGreen, fontWeight: FontWeight.w800, fontSize: 13)),
+      ]);
     } else if (p.lockedReason != null) {
-      action = const Icon(Icons.lock_outline_rounded, color: kMuted, size: 20);
+      action = const Icon(Icons.lock_outline_rounded, color: kRwSub, size: 22);
     } else {
-      action = FilledButton(
-        style: FilledButton.styleFrom(
-          minimumSize: const Size(0, 38),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          backgroundColor: kNavy,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
+      action = RwSmallButton(
+        'Klaim',
+        busy: _claiming == p.id,
         onPressed: _claiming != null ? null : () => _claim(p),
-        child: _claiming == p.id
-            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-            : const Text('Klaim'),
       );
     }
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(children: [
-        const Icon(Icons.card_giftcard_rounded, color: kRed),
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+        const RwIconBox(Icons.card_giftcard_rounded, size: 42, bg: kRwGoldLight, fg: Color(0xFFD98A00), circle: false),
         const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Flexible(child: Text('${p.title}  +${p.coins}', style: const TextStyle(fontWeight: FontWeight.w700))),
+            Wrap(crossAxisAlignment: WrapCrossAlignment.center, spacing: 8, runSpacing: 4, children: [
+              Text('${p.title}  +${p.coins}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: kRwText)),
               if (p.monthly)
                 Container(
-                  margin: const EdgeInsets.only(left: 8),
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: kRed, borderRadius: BorderRadius.circular(8)),
+                  decoration: BoxDecoration(color: kError, borderRadius: BorderRadius.circular(8)),
                   child: const Text('Bulan ini', style: TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w800)),
                 ),
             ]),
-            Text(p.lockedReason ?? p.desc, style: const TextStyle(color: kMuted, fontSize: 12.5)),
+            const SizedBox(height: 2),
+            Text(p.lockedReason ?? p.desc, style: const TextStyle(color: kRwSub, fontSize: 12.5, height: 1.35)),
+            const SizedBox(height: 2),
             Text(
               p.monthly && p.endsAt != null ? '1x per bulan • berakhir ${fmtDate.format(p.endsAt!)}' : 'Sekali per akun',
-              style: const TextStyle(color: kMuted, fontSize: 11.5),
+              style: const TextStyle(color: kRwSub, fontSize: 11.5),
             ),
           ]),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 10),
         action,
       ]),
     );
   }
 
+  // ---------------- RIWAYAT COINS ----------------
   Widget _historyList(List<CoinEntry> list, {required String emptyText}) {
     if (list.isEmpty) {
       return EmptyState(icon: Icons.receipt_long_outlined, title: 'Belum ada riwayat', message: emptyText);
     }
-    final shown = list.take(20).toList();
-    return Panel(
+    final shown = _showAll ? list : list.take(20).toList();
+    return RwCard(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Column(children: [
         for (var i = 0; i < shown.length; i++) ...[
-          if (i > 0) const Divider(height: 1),
+          if (i > 0) const Divider(height: 1, color: kRwLine),
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 11),
+            padding: const EdgeInsets.symmetric(vertical: 12),
             child: Row(children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: shown[i].amount >= 0 ? const Color(0x1F249B62) : const Color(0x1FC62026),
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: Icon(shown[i].kind.icon, size: 19, color: shown[i].amount >= 0 ? kGreen : kRed),
+              RwIconBox(
+                shown[i].kind.icon,
+                size: 40,
+                circle: false,
+                bg: shown[i].amount >= 0 ? const Color(0x2619A66A) : const Color(0x1FD91F2B),
+                fg: shown[i].amount >= 0 ? kRwGreen : kError,
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(shown[i].title,
-                      maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
-                  Text(
-                    [if (shown[i].note.isNotEmpty) shown[i].note, fmtDate.format(shown[i].createdAt)].join(' • '),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: kMuted, fontSize: 11.5),
-                  ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: kRwText)),
+                  if (shown[i].note.isNotEmpty)
+                    Text(shown[i].note, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: kRwSub, fontSize: 12)),
+                  Text(fmtDateTime.format(shown[i].createdAt), style: const TextStyle(color: kRwSub, fontSize: 11.5)),
                 ]),
               ),
               const SizedBox(width: 8),
               Text(
                 '${shown[i].amount >= 0 ? '+' : ''}${shown[i].amount}',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: shown[i].amount >= 0 ? kGreen : kRed),
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: shown[i].amount >= 0 ? kRwGreen : kError),
               ),
             ]),
+          ),
+        ],
+        if (list.length > 20) ...[
+          const Divider(height: 1, color: kRwLine),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () => setState(() => _showAll = !_showAll),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Text(_showAll ? 'Tampilkan lebih sedikit' : 'Lihat semua riwayat'),
+                Icon(_showAll ? Icons.expand_less_rounded : Icons.chevron_right_rounded, size: 20),
+              ]),
+            ),
           ),
         ],
       ]),
@@ -444,7 +503,8 @@ class _CoinsScreenState extends State<CoinsScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('CleanDrive Coins')),
+        backgroundColor: kRwBg,
+        appBar: AppBar(title: const Text('CleanDrive Coins'), backgroundColor: kRwBg),
         body: ListenableBuilder(
           listenable: app,
           builder: (context, _) {
@@ -453,41 +513,46 @@ class _CoinsScreenState extends State<CoinsScreen> {
               onRefresh: app.refreshMeta,
               bottom: 32,
               children: [
-                TwoPane(
-                  leftFlex: 5,
-                  rightFlex: 6,
-                  left: [
-                    _hero(l),
-                    const SizedBox(height: 16),
-                    _checkInPanel(l),
-                    sec('Cara mendapat Coins'),
-                    _earnPanel(),
-                  ],
-                  right: [
-                    sec('Promo Coins', top: 0),
-                    _promoPanel(l),
-                    sec('Riwayat Coins'),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Row(children: [
-                        FilterPill(label: 'Perolehan', selected: _tab == 0, onTap: () => setState(() => _tab = 0)),
-                        FilterPill(label: 'Penggunaan', selected: _tab == 1, onTap: () => setState(() => _tab = 1)),
-                      ]),
-                    ),
-                    if (_tab == 0)
-                      _historyList(l.gains, emptyText: 'Check-in atau selesaikan pembayaran untuk mulai mengumpulkan Coins.')
-                    else
-                      _historyList(l.usage,
-                          emptyText: 'Belum ada Coins yang dipakai. Tukar Coins saat membayar pesanan atau pembelian toko.'),
-                  ],
-                ),
+                Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  _hero(l),
+                  const SizedBox(height: 16),
+                  _checkInPanel(l),
+                  RwSectionTitle('Cara mendapatkan Coins', key: _earnKey),
+                  _earnPanel(),
+                  const RwSectionTitle('Promo Coins'),
+                  _promoPanel(l),
+                  RwSectionTitle('Riwayat Coins', key: _historyKey),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(children: [
+                      FilterPill(
+                          label: 'Perolehan',
+                          selected: _tab == 0,
+                          onTap: () => setState(() {
+                                _tab = 0;
+                                _showAll = false;
+                              })),
+                      FilterPill(
+                          label: 'Penggunaan',
+                          selected: _tab == 1,
+                          onTap: () => setState(() {
+                                _tab = 1;
+                                _showAll = false;
+                              })),
+                    ]),
+                  ),
+                  if (_tab == 0)
+                    _historyList(l.gains, emptyText: 'Check-in atau selesaikan pembayaran untuk mulai mengumpulkan Coins.')
+                  else
+                    _historyList(l.usage,
+                        emptyText: 'Belum ada Coins yang dipakai. Tukar Coins saat membayar pesanan atau pembelian toko.'),
+                ]),
               ],
             );
           },
         ),
       );
 }
-
 
 // ---------- TUKAR COINS SAAT PEMBAYARAN ----------
 // Hanya untuk pesanan layanan dan pembelian toko (bukan membership).
@@ -503,28 +568,39 @@ class RedeemCard extends StatelessWidget {
     final max = maxRedeemCoins(total: total, balance: l.balance);
     final canUse = max >= kCoinStep;
     final on = canUse && coins > 0;
-    return Panel(
+    return RwCard(
+      padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const CoinBadge(size: 36),
-          const SizedBox(width: 10),
+          const RwCoin(size: 42),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Tukar Coins', style: TextStyle(fontWeight: FontWeight.w800)),
-              Text('Saldo ${l.balance} Coins • 1 Coin = ${rp(kCoinValue)}', style: const TextStyle(color: kMuted, fontSize: 12.5)),
+              const Text('Tukar Coins', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5, color: kRwText)),
+              const SizedBox(height: 2),
+              Text('Saldo ${l.balance} Coins = ${rp(l.balance * kCoinValue)}', style: const TextStyle(color: kRwSub, fontSize: 12.5)),
+              Text('1 Coin = ${rp(kCoinValue)}', style: const TextStyle(color: kRwSub, fontSize: 12)),
             ]),
           ),
-          Switch(value: on, activeThumbColor: kRed, onChanged: canUse ? (v) => onChanged(v ? max : 0) : null),
+          Switch(
+            value: on,
+            activeThumbColor: Colors.white,
+            activeTrackColor: kRwNavy,
+            inactiveThumbColor: Colors.white,
+            inactiveTrackColor: const Color(0xFFC9D5EC),
+            trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+            onChanged: canUse ? (v) => onChanged(v ? max : 0) : null,
+          ),
         ]),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         if (!canUse)
           Text(
-            l.balance < kCoinStep ? 'Kumpulkan minimal $kCoinStep Coins untuk bisa menukar.' : 'Total pembayaran terlalu kecil untuk ditukar.',
-            style: const TextStyle(color: kMuted, fontSize: 12.5),
+            l.balance < kCoinStep ? 'Gunakan minimal $kCoinStep Coins untuk bisa menukar.' : 'Total pembayaran terlalu kecil untuk ditukar.',
+            style: const TextStyle(color: kRwSub, fontSize: 12.5),
           )
         else if (on) ...[
           Text('Pakai $coins Coins = potongan ${rp(coins * kCoinValue)}',
-              style: const TextStyle(color: kGreen, fontWeight: FontWeight.w800, fontSize: 13)),
+              style: const TextStyle(color: kRwGreen, fontWeight: FontWeight.w800, fontSize: 13)),
           if (max > kCoinStep)
             Slider(
               value: coins.clamp(kCoinStep, max).toDouble(),
@@ -532,12 +608,13 @@ class RedeemCard extends StatelessWidget {
               max: max.toDouble(),
               divisions: (max - kCoinStep) ~/ kCoinStep,
               label: '$coins',
-              activeColor: kRed,
+              activeColor: kRwNavy,
+              inactiveColor: const Color(0xFFD5DFF2),
               onChanged: (v) => onChanged((v / kCoinStep).round() * kCoinStep),
             ),
         ] else
           Text('Bisa ditukar hingga $max Coins (${rp(max * kCoinValue)}). Maksimal $kCoinRedeemCapPct% dari total.',
-              style: const TextStyle(color: kMuted, fontSize: 12.5)),
+              style: const TextStyle(color: kRwSub, fontSize: 12.5)),
       ]),
     );
   }

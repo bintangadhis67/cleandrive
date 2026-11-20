@@ -9,6 +9,7 @@ import '../../data/repository.dart';
 import '../../models/membership_models.dart';
 import '../../models/models.dart';
 import '../../widgets/widgets.dart';
+import 'reward_ui.dart';
 
 // ===========================================================================
 // CLEANDRIVE MEMBERSHIP (produk berbayar).
@@ -54,7 +55,8 @@ class MembershipStatusChip extends StatelessWidget {
       );
 }
 
-/// Kartu membership digital.
+/// Kartu membership digital (desain Modern Clean Blue & Gold).
+/// Data tetap dari [UserMembership]; QR Code memakai data yang sama seperti sebelumnya.
 class MembershipCard extends StatelessWidget {
   final UserMembership m;
   final String holder;
@@ -63,74 +65,96 @@ class MembershipCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = m.tier;
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [t.color, Color.lerp(t.color, kNavy, .7)!],
-        ),
-        boxShadow: const [BoxShadow(color: Color(0x3310264C), blurRadius: 20, offset: Offset(0, 10))],
-      ),
+    final accent = rwTierOnDark(t);
+    return RwHeroCard(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                Icon(t.icon, color: t.soft, size: 22),
+                Icon(Icons.military_tech_rounded, color: accent, size: 22),
                 const SizedBox(width: 8),
-                const Text('CleanDrive Membership', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 12.5)),
+                const Flexible(
+                  child: Text('Status Membership',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13.5)),
+                ),
               ]),
-              const SizedBox(height: 14),
-              Text(t.label, style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w800, height: 1)),
-              const SizedBox(height: 4),
-              Text(holder, style: const TextStyle(color: Colors.white, fontSize: 14)),
+              const SizedBox(height: 12),
+              Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(t.label.toUpperCase(),
+                        style: TextStyle(color: accent, fontSize: 36, fontWeight: FontWeight.w800, height: 1)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(t.icon, color: accent, size: 24),
+              ]),
+              const SizedBox(height: 6),
+              Text.rich(
+                TextSpan(children: [
+                  const TextSpan(text: 'Clean', style: TextStyle(color: Colors.white)),
+                  TextSpan(text: 'Drive', style: TextStyle(color: accent)),
+                ]),
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              ),
+              if (holder.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(holder,
+                      maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 12.5)),
+                ),
             ]),
           ),
+          const SizedBox(width: 12),
           Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
             child: QrImageView(data: 'CDMEMBER|${m.id}|${t.name}', size: 74, backgroundColor: Colors.white),
           ),
         ]),
         const SizedBox(height: 18),
-        Row(children: [
-          Expanded(child: _date('Mulai', m.startDate)),
-          Expanded(child: _date('Berakhir', m.endDate)),
+        Wrap(spacing: 22, runSpacing: 10, crossAxisAlignment: WrapCrossAlignment.end, children: [
+          _date('Berlaku sejak', m.startDate),
+          _date('Berlaku hingga', m.endDate),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: .18), borderRadius: BorderRadius.circular(16)),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: .14), borderRadius: BorderRadius.circular(16)),
             child: Text(m.isActive ? (m.cancelAtEnd ? 'Tidak diperpanjang' : 'Aktif') : 'Tidak aktif',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
+                style: TextStyle(color: accent, fontWeight: FontWeight.w700, fontSize: 12)),
           ),
         ]),
         if (m.isActive) ...[
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           LinearProgressIndicator(
             value: m.remaining,
-            minHeight: 6,
+            minHeight: 7,
             borderRadius: BorderRadius.circular(8),
-            color: Colors.white,
+            color: accent,
             backgroundColor: Colors.white24,
           ),
-          const SizedBox(height: 6),
-          Text('Sisa ${m.daysLeft} hari', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          const SizedBox(height: 8),
+          Text('Sisa ${m.daysLeft} hari masa aktif', style: const TextStyle(color: Colors.white, fontSize: 12.5)),
           if (m.plan.hasFreeWash)
             Padding(
               padding: const EdgeInsets.only(top: 2),
               child: Text('Cuci gratis tersisa ${m.freeLeft} dari ${m.freeTotal}',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                  style: const TextStyle(color: Colors.white70, fontSize: 12.5)),
             ),
         ],
       ]),
     );
   }
 
-  Widget _date(String label, DateTime? d) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: const TextStyle(color: Colors.white60, fontSize: 11.5)),
-        Text(d == null ? '-' : fmtDate.format(d), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+  Widget _date(String label, DateTime? d) => Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+        const SizedBox(height: 2),
+        Text(d == null ? '-' : fmtDate.format(d), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15)),
       ]);
 }
 
@@ -198,7 +222,7 @@ class MembershipHomeCard extends StatelessWidget {
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
-                        style: FilledButton.styleFrom(backgroundColor: kCream, foregroundColor: kNavy, minimumSize: const Size(0, 46)),
+                        style: FilledButton.styleFrom(backgroundColor: kRed, foregroundColor: Colors.white, minimumSize: const Size(0, 46)),
                         onPressed: () => openMembership(context),
                         child: const Text('Lihat Membership'),
                       ),
@@ -220,6 +244,9 @@ class MembershipScreen extends StatefulWidget {
 }
 
 class _MembershipScreenState extends State<MembershipScreen> {
+  /// Paket yang sedang dilihat detailnya (hanya tampilan; tidak mengubah data).
+  MembershipTier? _picked;
+
   @override
   void initState() {
     super.initState();
@@ -232,21 +259,51 @@ class _MembershipScreenState extends State<MembershipScreen> {
   void _checkout(MembershipTier t) =>
       Navigator.push(context, MaterialPageRoute(builder: (_) => MembershipCheckoutScreen(tier: t)));
 
+  Widget _benefitRow(IconData icon, String label, String value, {Color? valueColor}) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+          RwIconBox(icon, size: 38),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 5,
+            child: Text(label, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w500, color: kRwText)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 6,
+            child: Text(value,
+                textAlign: TextAlign.right,
+                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: valueColor ?? kRwText, height: 1.25)),
+          ),
+        ]),
+      );
+
   /// Ringkasan benefit aktif: sisa cuci gratis, status minggu ini, makanan/minuman, VIP, kuota klaim voucher.
   Widget _benefitPanel(UserMembership cur) {
     final p = cur.plan;
-    return Panel(
+    return RwCard(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 10),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Benefit Aktif', style: TextStyle(fontWeight: FontWeight.w800)),
+        Row(children: [
+          const Icon(Icons.workspace_premium_outlined, color: kRwNavy, size: 24),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text('Benefit ${cur.tier.label}',
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16.5, color: kRwText)),
+          ),
+        ]),
         const SizedBox(height: 8),
         if (p.hasFreeWash) ...[
-          kv('Cuci gratis', '${p.freePackage} Wash • ${p.freeVehiclesLabel}'),
-          kv('Sisa jatah', '${cur.freeLeft} dari ${cur.freeTotal}', bold: true),
-          kv('Minggu ini', cur.freeUsedThisWeek ? 'Sudah terpakai' : 'Tersedia (1x per minggu)',
-              valueColor: cur.freeUsedThisWeek ? kMuted : kGreen),
+          _benefitRow(Icons.local_car_wash_rounded, 'Cuci gratis', '${p.freePackage} Wash • ${p.freeVehiclesLabel}'),
+          _benefitRow(Icons.confirmation_number_outlined, 'Sisa jatah', '${cur.freeLeft} dari ${cur.freeTotal}'),
+          _benefitRow(Icons.event_available_rounded, 'Minggu ini',
+              cur.freeUsedThisWeek ? 'Sudah terpakai' : 'Tersedia (1x per minggu)',
+              valueColor: cur.freeUsedThisWeek ? kRwSub : kRwGreen),
         ],
-        for (final perk in p.visitPerks) kv('Kunjungan', perk),
-        kv('Klaim voucher', '${cur.tier.dailyVoucherLimit}x per hari'),
+        _benefitRow(Icons.local_offer_outlined, 'Diskon layanan', '${p.discountPct}%'),
+        for (final perk in p.visitPerks) _benefitRow(Icons.redeem_rounded, 'Kunjungan', perk),
+        _benefitRow(Icons.bolt_rounded, 'Prioritas booking', p.priority),
+        _benefitRow(Icons.card_giftcard_rounded, 'Klaim voucher', '${cur.tier.dailyVoucherLimit}x per hari'),
       ]),
     );
   }
@@ -257,8 +314,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Batalkan langganan?'),
         content: Text(
-          'Membership ${cur.tier.label} tetap aktif sampai ${fmtDate.format(cur.endDate!)} dan tidak akan diperpanjang. '
-          'Tidak ada pengembalian dana untuk sisa masa aktif.',
+          'Membership ${cur.tier.label} akan langsung berakhir dan seluruh benefitnya hilang. '
+          'Uang pembayaranmu akan dikembalikan otomatis.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Tidak')),
@@ -267,11 +324,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
       ),
     );
     if (ok != true || !mounted) return;
-    final done = await guard(context, () async {
-      await app.cancelMembership();
-      return true;
-    });
-    if (done == true && mounted) toast(context, 'Langganan dibatalkan. Benefit tetap aktif sampai masa aktif berakhir.');
+    final refund = await guard(context, () => app.cancelMembership());
+    if (refund != null && mounted) toast(context, 'Langganan dibatalkan. Dana ${rp(refund)} dikembalikan.');
   }
 
   Widget _statusPanel(MembershipInfo info) {
@@ -279,43 +333,54 @@ class _MembershipScreenState extends State<MembershipScreen> {
     if (info.hasActive && cur != null) {
       return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         MembershipCard(m: cur, holder: app.user ?? ''),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         _benefitPanel(cur),
-        const SizedBox(height: 12),
-        RedButton('Perpanjang Membership', icon: Icons.autorenew_rounded, onPressed: () => _checkout(cur.tier)),
-        const SizedBox(height: 6),
+        const SizedBox(height: 14),
+        RwButton('Perpanjang Membership', icon: Icons.autorenew_rounded, onPressed: () => _checkout(cur.tier)),
+        const SizedBox(height: 10),
         if (cur.cancelAtEnd)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
             child: Text(
               'Langganan dibatalkan. Benefit tetap aktif sampai ${fmtDate.format(cur.endDate!)}, lalu tidak diperpanjang. Perpanjang kapan saja bila ingin lanjut.',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: kMuted, fontSize: 12.5, height: 1.35),
+              style: const TextStyle(color: kRwSub, fontSize: 12.5, height: 1.4),
             ),
           )
-        else
+        else ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              'Perpanjang sebelum ${fmtDate.format(cur.endDate!)},\nuntuk tetap menikmati semua keuntungan ${cur.tier.label}.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: kRwSub, fontSize: 12.5, height: 1.4),
+            ),
+          ),
+          const SizedBox(height: 4),
           TextButton.icon(
             onPressed: () => _cancelSubscription(cur),
             icon: const Icon(Icons.cancel_outlined, size: 18, color: kRed),
             label: const Text('Batalkan Langganan', style: TextStyle(color: kRed, fontWeight: FontWeight.w700)),
           ),
+        ],
       ]);
     }
     final pending = info.pending;
     if (pending != null && !pending.expired) {
-      return Panel(
-        color: const Color(0x1FE9A23B),
+      return RwCard(
+        color: kRwGoldLight,
+        padding: const EdgeInsets.all(18),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Row(children: [
-            Icon(Icons.schedule_rounded, color: kWarn),
+            Icon(Icons.schedule_rounded, color: kRwGoldDark),
             SizedBox(width: 10),
-            Expanded(child: Text('Menunggu pembayaran', style: TextStyle(fontWeight: FontWeight.w700))),
+            Expanded(child: Text('Menunggu pembayaran', style: TextStyle(fontWeight: FontWeight.w800, color: kRwText))),
           ]),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text('Membership ${pending.plan.name} • ${rp(pending.amount)} via ${pending.method.label}',
-              style: const TextStyle(color: kMuted, fontSize: 13)),
-          const SizedBox(height: 12),
-          RedButton('Lanjutkan Pembayaran',
+              style: const TextStyle(color: kRwSub, fontSize: 13)),
+          const SizedBox(height: 14),
+          RwButton('Lanjutkan Pembayaran',
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MembershipPayScreen(order: pending)))),
           Center(
             child: TextButton(
@@ -333,149 +398,178 @@ class _MembershipScreenState extends State<MembershipScreen> {
       );
     }
     final s = info.status;
-    return Panel(
+    return RwHeroCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Icon(Icons.workspace_premium_outlined, size: 30, color: kNavy),
+          const Icon(Icons.military_tech_rounded, size: 28, color: kRwGold),
           const SizedBox(width: 12),
-          const Expanded(child: Text('Status Membership', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15))),
+          const Expanded(
+            child: Text('Status Membership', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.white)),
+          ),
           MembershipStatusChip(s),
         ]),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         Text(
           switch (s) {
             MembershipStatus.expired => 'Membership ${cur?.tier.label ?? ''} kamu sudah kedaluwarsa. Beli lagi untuk mendapatkan benefit.',
             MembershipStatus.cancelled => 'Pembelian membership dibatalkan. Pilih paket lagi kapan saja.',
             _ => 'Kamu belum berlangganan. Pilih paket di bawah untuk mendapatkan diskon layanan, prioritas booking, dan voucher eksklusif.',
           },
-          style: const TextStyle(color: kMuted, height: 1.4),
+          style: const TextStyle(color: Colors.white, height: 1.45, fontSize: 13.5),
         ),
         const SizedBox(height: 10),
         const Text('Membership dibeli langsung tanpa perlu Coins dan tidak naik level otomatis.',
-            style: TextStyle(color: kMuted, fontSize: 12.5)),
+            style: TextStyle(color: Colors.white70, fontSize: 12.5, height: 1.4)),
       ]),
     );
   }
 
-  Widget _planCard(MembershipPlan p, MembershipInfo info) {
+  /// Kartu pilihan paket. Menekan kartu menampilkan detail paket di bawah daftar.
+  Widget _planTile(MembershipPlan p, MembershipInfo info, MembershipTier selected) {
     final isCurrent = info.hasActive && info.current!.tier == p.tier;
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(kRadiusCard),
-        border: Border.all(color: isCurrent || p.popular ? p.tier.color : kLine, width: isCurrent || p.popular ? 2 : 1),
-        boxShadow: kShadowSoft,
-      ),
-      padding: const EdgeInsets.all(16),
+    final isSel = selected == p.tier;
+    return RwCard(
+      onTap: () => setState(() => _picked = p.tier),
+      borderColor: isCurrent ? kRwGold : (isSel ? kRed.withValues(alpha: .6) : null),
+      borderWidth: isCurrent ? 1.8 : 1.4,
+      padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+      child: Row(children: [
+        RwTierMedal(p.tier, size: 58),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Flexible(
+                child: Text(p.name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: kRwText)),
+              ),
+              if (!isCurrent && p.popular) ...[
+                const SizedBox(width: 8),
+                const RwPill('Populer', bg: kRwGoldLight, fg: kRwGoldDark),
+              ],
+            ]),
+            Text(rp(p.price), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: kRwText, height: 1.2)),
+            Text('/ ${p.durationLabel}', style: const TextStyle(fontSize: 13, color: kRwSub)),
+          ]),
+        ),
+        const SizedBox(width: 8),
+        Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
+          if (isCurrent) ...[
+            const RwPill('Aktif', bg: kRwGold, fg: Color(0xFF5A3A00)),
+            const SizedBox(height: 4),
+          ],
+          const Icon(Icons.chevron_right_rounded, color: kRed, size: 30),
+        ]),
+      ]),
+    );
+  }
+
+  /// Detail paket terpilih: harga, durasi, daftar keuntungan, tombol Lihat Detail dan Pilih Paket.
+  Widget _planDetail(MembershipPlan p, MembershipInfo info) {
+    final isCurrent = info.hasActive && info.current!.tier == p.tier;
+    return RwCard(
+      padding: const EdgeInsets.all(18),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(color: p.tier.soft, shape: BoxShape.circle),
-            child: Icon(p.tier.icon, color: p.tier.color, size: 22),
-          ),
-          const SizedBox(width: 10),
-          Expanded(child: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17))),
-          if (isCurrent)
-            const MembershipStatusChip(MembershipStatus.active)
-          else if (p.popular)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(color: kRed, borderRadius: BorderRadius.circular(8)),
-              child: const Text('Populer', style: TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w700)),
-            ),
+          RwTierMedal(p.tier, size: 50),
+          const SizedBox(width: 12),
+          Expanded(child: Text(p.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: kRwText))),
         ]),
-        const SizedBox(height: 12),
-        Text(rp(p.price), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: kNavy)),
-        Text('/ ${p.durationLabel}', style: const TextStyle(color: kMuted, fontSize: 12.5)),
-        const SizedBox(height: 10),
-        for (final b in p.benefits.take(4))
+        const SizedBox(height: 14),
+        Text(rp(p.price), style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: kRwText, height: 1.1)),
+        Text('/ ${p.durationLabel}', style: const TextStyle(fontSize: 15, color: kRwSub)),
+        const SizedBox(height: 14),
+        for (final b in p.benefits)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 3),
+            padding: const EdgeInsets.symmetric(vertical: 5),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Icon(Icons.check_circle_rounded, size: 16, color: kGreen),
-              const SizedBox(width: 8),
-              Expanded(child: Text(b, style: const TextStyle(fontSize: 12.5, height: 1.3))),
+              const Padding(padding: EdgeInsets.only(top: 1), child: Icon(Icons.check_circle_rounded, size: 20, color: kRwGreen)),
+              const SizedBox(width: 10),
+              Expanded(child: Text(b, style: const TextStyle(fontSize: 14.5, height: 1.3, color: kRwText))),
             ]),
           ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         Row(children: [
-          Expanded(
-            child: OutlinedButton(
-              style: OutlinedButton.styleFrom(minimumSize: const Size(0, 44), padding: EdgeInsets.zero),
-              onPressed: () => _detail(p.tier),
-              child: const Text('Lihat Detail', style: TextStyle(fontSize: 13)),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: FilledButton(
-              style: FilledButton.styleFrom(minimumSize: const Size(0, 44), padding: EdgeInsets.zero),
-              onPressed: () => _checkout(p.tier),
-              child: Text(isCurrent ? 'Perpanjang' : 'Pilih Paket', style: const TextStyle(fontSize: 13)),
-            ),
-          ),
+          Expanded(child: RwButton('Lihat Detail', outlined: true, height: 48, onPressed: () => _detail(p.tier))),
+          const SizedBox(width: 12),
+          Expanded(child: RwButton(isCurrent ? 'Perpanjang' : 'Pilih Paket', height: 48, onPressed: () => _checkout(p.tier))),
         ]),
       ]),
     );
   }
 
   Widget _compareTable(MembershipInfo info) {
-    TableRow row(String label, String Function(MembershipPlan) v, {bool bold = false}) => TableRow(children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
-            child: Text(label, style: const TextStyle(color: kMuted, fontWeight: FontWeight.w600, fontSize: 13)),
-          ),
-          for (final p in kMembershipPlans)
-            Container(
-              color: info.hasActive && info.current!.tier == p.tier ? p.tier.soft.withValues(alpha: .45) : null,
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-              child: Text(v(p),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontWeight: bold ? FontWeight.w800 : FontWeight.w600, fontSize: 13)),
-            ),
-        ]);
+    const labelW = 128.0;
+    const minColW = 124.0;
 
-    return Panel(
+    return RwCard(
       padding: EdgeInsets.zero,
-      child: LayoutBuilder(builder: (context, c) {
-        final w = c.maxWidth < 620 ? 620.0 : c.maxWidth;
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SizedBox(
-            width: w,
-            child: Table(
-              columnWidths: const {0: FlexColumnWidth(1.5)},
-              defaultColumnWidth: const FlexColumnWidth(1),
-              border: const TableBorder(horizontalInside: BorderSide(color: kLine)),
-              children: [
-                TableRow(children: [
-                  const SizedBox(),
-                  for (final p in kMembershipPlans)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Column(children: [
-                        Icon(p.tier.icon, color: p.tier.color, size: 22),
-                        Text(p.name, style: TextStyle(fontWeight: FontWeight.w800, color: p.tier.color)),
-                      ]),
-                    ),
-                ]),
-                row('Harga', (p) => rp(p.price), bold: true),
-                row('Durasi', (p) => p.durationLabel),
-                row('Cuci gratis', (p) => p.hasFreeWash ? '${p.freeWashQuota}x ${p.freePackage}\n(${p.freeVehiclesLabel})\nmaks. 1x/minggu' : '-'),
-                row('Makanan & minuman', (p) => p.snack ? 'Gratis' : '-'),
-                row('Ruang tunggu VIP', (p) => p.vip ? 'Ya' : '-'),
-                row('Kursi pijat', (p) => p.massage ? 'Ya' : '-'),
-                row('Klaim voucher', (p) => '${p.tier.dailyVoucherLimit}x / hari'),
-                row('Diskon layanan', (p) => '${p.discountPct}%'),
-                row('Prioritas booking', (p) => p.priority),
-                row('Promo eksklusif', (p) => p.promo),
-              ],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: LayoutBuilder(builder: (context, c) {
+          final colW = ((c.maxWidth - labelW) / kMembershipPlans.length).clamp(minColW, 400.0).toDouble();
+          final total = labelW + colW * kMembershipPlans.length;
+
+          bool isCur(MembershipPlan p) => info.hasActive && info.current!.tier == p.tier;
+
+          TableRow row(String label, String Function(MembershipPlan) v, {bool bold = false}) => TableRow(children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                  child: Text(label, style: const TextStyle(color: kRwSub, fontWeight: FontWeight.w500, fontSize: 12.5, height: 1.3)),
+                ),
+                for (final p in kMembershipPlans)
+                  Container(
+                    color: isCur(p) ? rwTierSoft(p.tier).withValues(alpha: .5) : null,
+                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                    child: Text(v(p),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5, color: kRwText, height: 1.3)),
+                  ),
+              ]);
+
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: total,
+              child: Table(
+                defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+                columnWidths: {
+                  0: const FixedColumnWidth(labelW),
+                  for (var i = 1; i <= kMembershipPlans.length; i++) i: FixedColumnWidth(colW),
+                },
+                border: const TableBorder(
+                  horizontalInside: BorderSide(color: kRwLine),
+                  verticalInside: BorderSide(color: kRwLine),
+                ),
+                children: [
+                  TableRow(children: [
+                    const SizedBox(height: 92),
+                    for (final p in kMembershipPlans)
+                      Container(
+                        color: isCur(p) ? rwTierSoft(p.tier).withValues(alpha: .5) : null,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Column(mainAxisSize: MainAxisSize.min, children: [
+                          RwTierMedal(p.tier, size: 42),
+                          const SizedBox(height: 6),
+                          Text(p.name, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: rwTierColor(p.tier))),
+                        ]),
+                      ),
+                  ]),
+                  row('Harga', (p) => rp(p.price), bold: true),
+                  row('Durasi', (p) => p.durationLabel),
+                  row('Cuci gratis', (p) => p.hasFreeWash ? '${p.freeWashQuota}x ${p.freePackage}\n(${p.freeVehiclesLabel})\nmaks. 1x/minggu' : '-'),
+                  row('Makanan & minuman', (p) => p.snack ? 'Gratis' : '-'),
+                  row('Ruang tunggu VIP', (p) => p.vip ? 'Ya' : '-'),
+                  row('Kursi pijat', (p) => p.massage ? 'Ya' : '-'),
+                  row('Klaim voucher', (p) => '${p.tier.dailyVoucherLimit}x / hari'),
+                  row('Diskon layanan', (p) => '${p.discountPct}%'),
+                  row('Prioritas booking', (p) => p.priority),
+                  row('Promo eksklusif', (p) => p.promo),
+                ],
+              ),
             ),
-          ),
-        );
-      }),
+          );
+        }),
+      ),
     );
   }
 
@@ -487,30 +581,26 @@ class _MembershipScreenState extends State<MembershipScreen> {
         message: 'Riwayat pembelian dan perpanjangan membership muncul di sini, terpisah dari riwayat Coins.',
       );
     }
-    return Panel(
+    return RwCard(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Column(children: [
         for (var i = 0; i < info.history.length; i++) ...[
-          if (i > 0) const Divider(height: 1),
+          if (i > 0) const Divider(height: 1, color: kRwLine),
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 11),
+            padding: const EdgeInsets.symmetric(vertical: 12),
             child: Row(children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(color: info.history[i].tier.soft, borderRadius: BorderRadius.circular(11)),
-                child: Icon(info.history[i].tier.icon, size: 19, color: info.history[i].tier.color),
-              ),
+              RwTierMedal(info.history[i].tier, size: 40),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('${info.history[i].renewal ? 'Perpanjangan' : 'Pembelian'} ${info.history[i].tier.label}',
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+                  Text('${info.history[i].refund ? 'Pengembalian dana' : (info.history[i].renewal ? 'Perpanjangan' : 'Pembelian')} ${info.history[i].tier.label}',
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: kRwText)),
                   Text('${info.history[i].trx} • ${fmtDate.format(info.history[i].createdAt)}',
-                      style: const TextStyle(color: kMuted, fontSize: 11.5)),
+                      style: const TextStyle(color: kRwSub, fontSize: 11.5)),
                 ]),
               ),
-              Text(rp(info.history[i].amount), style: const TextStyle(fontWeight: FontWeight.w800)),
+              Text(info.history[i].refund ? '+${rp(info.history[i].amount)}' : rp(info.history[i].amount),
+                  style: TextStyle(fontWeight: FontWeight.w800, color: info.history[i].refund ? kGreen : kRwText)),
             ]),
           ),
         ],
@@ -520,33 +610,33 @@ class _MembershipScreenState extends State<MembershipScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Membership')),
+        backgroundColor: kRwBg,
+        appBar: AppBar(title: const Text('Membership'), backgroundColor: kRwBg),
         body: ListenableBuilder(
           listenable: app,
           builder: (context, _) {
             final info = app.membership;
+            final selected = _picked ??
+                (info.hasActive && info.current != null
+                    ? info.current!.tier
+                    : kMembershipPlans.firstWhere((p) => p.popular, orElse: () => kMembershipPlans.first).tier);
             return PageList(
               onRefresh: app.refreshMeta,
               bottom: 32,
               children: [
-                TwoPane(
-                  leftFlex: 4,
-                  rightFlex: 7,
-                  left: [
-                    _statusPanel(info),
-                    sec('Riwayat Transaksi Membership'),
-                    _history(info),
-                  ],
-                  right: [
-                    sec('Pilih Paket', top: 0),
-                    AutoGrid(minWidth: 250, children: [for (final p in kMembershipPlans) _planCard(p, info)]),
-                    sec('Perbandingan Paket'),
-                    _compareTable(info),
-                    const SizedBox(height: 10),
-                    const Text('Harga dan benefit adalah data contoh dan dapat diubah administrator.',
-                        style: TextStyle(color: kMuted, fontSize: 12)),
-                  ],
-                ),
+                _statusPanel(info),
+                const RwSectionTitle('Pilih Paket'),
+                for (final p in kMembershipPlans)
+                  Padding(padding: const EdgeInsets.only(bottom: 12), child: _planTile(p, info, selected)),
+                const RwSectionTitle('Detail Paket', top: 12),
+                _planDetail(planOf(selected), info),
+                const RwSectionTitle('Perbandingan Paket'),
+                _compareTable(info),
+                const SizedBox(height: 10),
+                const Text('Harga dan benefit adalah data contoh dan dapat diubah administrator.',
+                    style: TextStyle(color: kRwSub, fontSize: 12)),
+                const RwSectionTitle('Riwayat Transaksi Membership'),
+                _history(info),
               ],
             );
           },
@@ -567,7 +657,8 @@ class MembershipPlanDetailScreen extends StatelessWidget {
       builder: (context, _) {
         final renew = app.membership.hasActive && app.membership.current!.tier == tier;
         return Scaffold(
-          appBar: AppBar(title: Text('Membership ${p.name}')),
+          backgroundColor: kRwBg,
+          appBar: AppBar(title: Text('Membership ${p.name}'), backgroundColor: kRwBg),
           body: PageList(
             bottom: 24,
             children: [
@@ -576,17 +667,14 @@ class MembershipPlanDetailScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(22),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(26),
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [p.tier.color, Color.lerp(p.tier.color, kNavy, .7)!],
-                      ),
+                      borderRadius: BorderRadius.circular(24),
+                      gradient: kRwGradient,
+                      boxShadow: kRwShadow,
                     ),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Icon(p.tier.icon, color: p.tier.soft, size: 38),
+                      Icon(p.tier.icon, color: rwTierOnDark(p.tier), size: 38),
                       const SizedBox(height: 10),
-                      Text(p.name, style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w800)),
+                      Text(p.name, style: TextStyle(color: rwTierOnDark(p.tier), fontSize: 30, fontWeight: FontWeight.w800)),
                       const SizedBox(height: 14),
                       Text(rp(p.price), style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w800)),
                       Text('untuk ${p.durationLabel}', style: const TextStyle(color: Colors.white70)),
@@ -633,7 +721,7 @@ class MembershipPlanDetailScreen extends StatelessWidget {
                           '${p.visitPerks.join(' dan ')} berlaku untuk pencucian, 1 kunjungan per hari, selama masa aktif.',
                         'Membership aktif setelah pembayaran berhasil dan berlaku 1 bulan (30 hari).',
                         'Membership tidak diperpanjang otomatis. Perpanjang kapan saja sebelum atau sesudah berakhir; perpanjangan menambah 1 bulan dan jatah cuci gratis.',
-                        'Batalkan langganan: benefit tetap aktif sampai masa aktif berakhir, tidak diperpanjang, dan tidak ada pengembalian dana.',
+                        'Batalkan langganan: membership langsung berakhir dan seluruh pembayaran dikembalikan otomatis.',
                         'Voucher eksklusif membership diperbarui tiap minggu dan dihitung dalam kuota klaim harian (Bronze/Silver 1x, Gold 2x, Platinum 3x per hari).',
                         'Membership dibeli dengan pembayaran, tidak memerlukan Coins, dan Coins tidak bisa dipakai untuk membelinya.',
                       ])
@@ -710,7 +798,8 @@ class _MembershipCheckoutScreenState extends State<MembershipCheckoutScreen> {
           final start = renew ? cur.endDate! : DateTime.now();
           final end = start.add(Duration(days: p.durationDays));
           return Scaffold(
-            appBar: AppBar(title: Text(renew ? 'Perpanjang Membership' : 'Checkout Membership')),
+            backgroundColor: kRwBg,
+            appBar: AppBar(title: Text(renew ? 'Perpanjang Membership' : 'Checkout Membership'), backgroundColor: kRwBg),
             body: PageList(
               bottom: 32,
               children: [
@@ -792,7 +881,7 @@ class _MembershipCheckoutScreenState extends State<MembershipCheckoutScreen> {
                             ),
                             _busy
                                 ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: kRed))
-                                : const Icon(Icons.chevron_right, color: kMuted),
+                                : const Icon(Icons.chevron_right, color: kRed),
                           ]),
                         ),
                       ),
@@ -951,7 +1040,7 @@ class _MembershipPayScreenState extends State<MembershipPayScreen> {
         if (expired)
           RedButton('Buat QR Baru', busy: _busy, onPressed: _renewQr)
         else
-          RedButton('Cek Pembayaran', color: kNavy, busy: _busy, onPressed: () => _check()),
+          RedButton('Cek Pembayaran', busy: _busy, onPressed: () => _check()),
         if (_o.sandbox && !expired) ...[
           const SizedBox(height: 8),
           TextButton.icon(
@@ -999,7 +1088,8 @@ class _MembershipPayScreenState extends State<MembershipPayScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text('Bayar ${_o.method.label}')),
+        backgroundColor: kRwBg,
+        appBar: AppBar(title: Text('Bayar ${_o.method.label}'), backgroundColor: kRwBg),
         body: PageList(
           bottom: 32,
           children: [
@@ -1032,6 +1122,7 @@ class MembershipSuccessScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final cur = app.membership.current;
     return Scaffold(
+      backgroundColor: kRwBg,
       body: SafeArea(
         child: PageList(
           top: 24,

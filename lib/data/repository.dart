@@ -191,8 +191,9 @@ abstract class Repository {
   Future<MembershipOrder> simulateMembershipQris(String id); // hanya mode sandbox
   Future<void> cancelMembershipOrder(String id);
 
-  /// Batalkan langganan membership aktif: benefit tetap sampai masa aktif berakhir, tidak diperpanjang, tanpa refund.
-  Future<void> cancelMembership();
+  /// Batalkan langganan membership aktif: membership langsung hilang dan uang dikembalikan penuh.
+  /// Mengembalikan nominal refund (Rp).
+  Future<int> cancelMembership();
 
   // garasi kendaraan
   Future<List<GarageVehicle>> garage();

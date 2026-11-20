@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart'
+    show BarcodeCapture, BarcodeFormat, DetectionSpeed, MobileScanner, MobileScannerController, MobileScannerState;
 
 import '../../../core/app_state.dart';
 import '../../../core/theme.dart';
@@ -9,8 +11,8 @@ import '../shared/admin_data.dart';
 import '../shared/admin_ui.dart';
 
 // ---------------------------------------------------------------------------
-// VERIFIKASI TIKET: area pemindai, input kode manual, detail tiket, status valid/tidak valid, riwayat.
-// Verifikasi memakai app.verify (alur yang sudah ada).
+// VERIFIKASI TIKET: pemindai QR (kamera), input kode manual, detail tiket, status valid/tidak valid, riwayat.
+// Hasil pindai hanya mengisi kode tiket lalu memanggil _verify() -> app.verify (alur verifikasi yang sudah ada).
 // ---------------------------------------------------------------------------
 class AdminVerifyPage extends StatefulWidget {
   const AdminVerifyPage({super.key});
@@ -26,10 +28,55 @@ class _AdminVerifyPageState extends State<AdminVerifyPage> {
   String _msg = '';
   Booking? _ticket;
 
+  // ----- pemindai kamera -----
+  MobileScannerController? _cam; // null = kamera mati
+  bool get _scanning => _cam != null;
+
   @override
   void dispose() {
     _code.dispose();
+    _cam?.dispose();
     super.dispose();
+  }
+
+  MobileScannerController _newCam() => MobileScannerController(
+        formats: const [BarcodeFormat.qrCode],
+        detectionSpeed: DetectionSpeed.noDuplicates,
+      );
+
+  /// Menyalakan kamera. Izin kamera diminta browser / sistem saat pertama kali.
+  void _startScan() => setState(() => _cam = _newCam());
+
+  /// Memulai ulang kamera dengan controller baru (dipakai tombol "Coba lagi").
+  void _restartScan() {
+    final old = _cam;
+    setState(() => _cam = _newCam());
+    WidgetsBinding.instance.addPostFrameCallback((_) => old?.dispose());
+  }
+
+  /// Mematikan kamera. Controller dibuang setelah widget kamera dilepas dari layar.
+  void _stopScan() {
+    final c = _cam;
+    if (c == null) return;
+    setState(() => _cam = null);
+    WidgetsBinding.instance.addPostFrameCallback((_) => c.dispose());
+  }
+
+  /// QR terbaca: isi kolom kode, matikan kamera, lalu verifikasi dengan alur yang sama seperti input manual.
+  void _onDetect(BarcodeCapture cap) {
+    if (_busy || !_scanning) return;
+    String value = '';
+    for (final b in cap.barcodes) {
+      final v = b.rawValue?.trim() ?? '';
+      if (v.isNotEmpty) {
+        value = v;
+        break;
+      }
+    }
+    if (value.isEmpty) return;
+    _code.text = value;
+    _stopScan();
+    _verify();
   }
 
   Future<void> _verify() async {
@@ -62,28 +109,129 @@ class _AdminVerifyPageState extends State<AdminVerifyPage> {
     if (mounted) setState(() => _busy = false);
   }
 
+  /// Isi kotak pemindai: kamera hidup, atau tampilan siaga saat kamera mati.
+  Widget _cameraBox() {
+    final cam = _cam;
+    return Container(
+      height: 240,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(color: kNavyDark, borderRadius: BorderRadius.circular(16)),
+      child: Stack(children: [
+        if (cam != null)
+          Positioned.fill(child: MobileScanner(key: ObjectKey(cam), controller: cam, onDetect: _onDetect, fit: BoxFit.cover)),
+        Positioned.fill(child: CustomPaint(painter: _FramePainter())),
+        if (cam == null)
+          const Center(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.qr_code_scanner_rounded, color: Colors.white70, size: 56),
+              SizedBox(height: 10),
+              Text('Pindai QR tiket pelanggan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+              SizedBox(height: 2),
+              Text('Tekan "Aktifkan Kamera" untuk mulai.', style: TextStyle(color: Colors.white54, fontSize: 12)),
+            ]),
+          )
+        else
+          // Pesan galat (izin ditolak, kamera tidak ada, dll.) dan tombol ganti kamera.
+          Positioned.fill(
+            child: ValueListenableBuilder<MobileScannerState>(
+              valueListenable: cam,
+              builder: (context, state, _) {
+                if (state.error != null) {
+                  return Container(
+                    color: kNavyDark,
+                    padding: const EdgeInsets.all(20),
+                    alignment: Alignment.center,
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.videocam_off_rounded, color: Colors.white70, size: 40),
+                      const SizedBox(height: 8),
+                      const Text('Kamera tidak dapat dibuka',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13.5)),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Pastikan izin kamera diberikan dan kamera tidak dipakai aplikasi lain. Di browser, gunakan HTTPS atau localhost.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white54, fontSize: 12, height: 1.4),
+                      ),
+                      const SizedBox(height: 6),
+                      // Detail teknis galat, berguna untuk mencari penyebab.
+                      Text('${state.error}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.white38, fontSize: 10.5)),
+                      const SizedBox(height: 6),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(foregroundColor: Colors.white),
+                        onPressed: _restartScan,
+                        icon: const Icon(Icons.refresh_rounded, size: 18),
+                        label: const Text('Coba lagi'),
+                      ),
+                    ]),
+                  );
+                }
+                // Status kamera untuk diagnosis: menyiapkan / berjalan, jumlah kamera, resolusi.
+                final String status;
+                if (!state.isInitialized) {
+                  status = 'Menyiapkan kamera...';
+                } else if (!state.isRunning) {
+                  status = 'Kamera siap, belum berjalan';
+                } else {
+                  status = 'Kamera aktif • ${state.availableCameras ?? '?'} kamera • ${state.size.width.toInt()}×${state.size.height.toInt()}';
+                }
+                return Stack(children: [
+                  Align(
+                    alignment: Alignment.topRight,
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: IconButton.filledTonal(
+                        tooltip: 'Ganti kamera',
+                        style: IconButton.styleFrom(backgroundColor: Colors.black45, foregroundColor: Colors.white),
+                        onPressed: () => cam.switchCamera(),
+                        icon: const Icon(Icons.cameraswitch_rounded),
+                      ),
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.bottomLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(8)),
+                        child: Text(status, style: const TextStyle(color: Colors.white, fontSize: 11)),
+                      ),
+                    ),
+                  ),
+                ]);
+              },
+            ),
+          ),
+      ]),
+    );
+  }
+
   Widget _scanner() => AdminCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           const CardTitle('Pemindai QR Code'),
           const SizedBox(height: 12),
-          Container(
-            height: 220,
-            decoration: BoxDecoration(color: kNavyDark, borderRadius: BorderRadius.circular(16)),
-            child: Stack(children: [
-              Positioned.fill(child: CustomPaint(painter: _FramePainter())),
-              const Center(
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.qr_code_scanner_rounded, color: Colors.white70, size: 56),
-                  SizedBox(height: 10),
-                  Text('Pemindaian kamera belum tersedia', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
-                  SizedBox(height: 2),
-                  Text('Gunakan input kode tiket di bawah.', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                ]),
+          _cameraBox(),
+          const SizedBox(height: 12),
+          if (_scanning)
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(46),
+                foregroundColor: kNavy,
+                side: const BorderSide(color: Color(0xFFD7E2F6)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
-            ]),
-          ),
+              onPressed: _stopScan,
+              icon: const Icon(Icons.stop_circle_outlined),
+              label: const Text('Hentikan Pemindaian'),
+            )
+          else
+            RedButton('Aktifkan Kamera', icon: Icons.videocam_rounded, busy: _busy, onPressed: _startScan),
           const SizedBox(height: 10),
-          const Text('Pemindaian lewat kamera membutuhkan paket mobile_scanner dan belum dipasang di project ini.',
+          const Text('Arahkan kamera ke QR pada tiket pelanggan. Setelah terbaca, tiket langsung diverifikasi. Kode tiket juga bisa diketik manual di bawah.',
               style: TextStyle(color: kMuted, fontSize: 11.5, height: 1.4)),
         ]),
       );

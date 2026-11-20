@@ -22,9 +22,10 @@ Future<void> main() async {
 
 /// Skala ukuran tampilan di laptop / desktop. TETAP (tidak bergantung pada zoom), jadi zoom Chrome
 /// (Ctrl + / Ctrl -) tetap berfungsi normal: tampilan = zoom Chrome x kDesktopScale.
-/// 0.8 cocok untuk layar Windows berskala 125%. Lebih kecil: turunkan (mis. 0.7). Lebih besar: naikkan (mis. 0.9 atau 1.0).
+/// Sebelumnya 0.8 (membuat tampilan laptop terlihat kecil). Sekarang 1.0 karena layout laptop sudah memakai
+/// menu samping + isi dibatasi lebarnya (lihat desktop_shell.dart). Jika masih terasa besar: turunkan (mis. 0.9).
 /// HP / tablet kecil (lebar < 900 px) selalu 1.0 (tidak berubah).
-const double kDesktopScale = 0.8;
+const double kDesktopScale = 1.0;
 
 double uiScaleFor(Size s) => s.width < 900 ? 1.0 : kDesktopScale;
 
