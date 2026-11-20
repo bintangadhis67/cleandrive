@@ -1,0 +1,454 @@
+[
+  {
+    "id": "mk1",
+    "name": "Roti Sisir Original",
+    "description": "Roti sisir lembut, 140 g",
+    "details": "Roti sisir lembut dengan rasa original yang gurih manis. Teman santai yang praktis untuk mengganjal lapar sambil menunggu kendaraan selesai dicuci. Berat bersih 140 g.",
+    "price": 12000,
+    "category": "makanan",
+    "image": "assets/images/Makanan_Ringan_1_nobg.png",
+    "stock": 3,
+    "vehicles": [],
+    "sort": 0
+  },
+  {
+    "id": "mk2",
+    "name": "Taro Net Seaweed",
+    "description": "Snack rumput laut, 140 g",
+    "details": "Snack renyah rasa rumput laut dengan tekstur khas yang ringan dan gurih. Cocok dinikmati sebagai camilan selama menunggu. Berat bersih 140 g.",
+    "price": 12000,
+    "category": "makanan",
+    "image": "assets/images/Makanan_Ringan_2_nobg.png",
+    "stock": 12,
+    "vehicles": [],
+    "sort": 1
+  },
+  {
+    "id": "mk3",
+    "name": "Japota Seaweed",
+    "description": "Keripik kentang rasa rumput laut",
+    "details": "Keripik kentang tipis yang renyah dengan bumbu rumput laut yang gurih. Camilan ringan untuk berbagi atau dinikmati sendiri.",
+    "price": 10000,
+    "category": "makanan",
+    "image": "assets/images/Makanan_Ringan_3_nobg.png",
+    "stock": 8,
+    "vehicles": [],
+    "sort": 2
+  },
+  {
+    "id": "mk4",
+    "name": "Pop Mie Pedas",
+    "description": "Mi instan cup rasa pedas, 75 g",
+    "details": "Mi instan dalam cup dengan rasa pedas. Cukup seduh dengan air panas dan siap disantap dalam beberapa menit. Berat 75 g.",
+    "price": 8000,
+    "category": "makanan",
+    "image": "assets/images/Makanan_Ringan_4_nobg.png",
+    "stock": 4,
+    "vehicles": [],
+    "sort": 3
+  },
+  {
+    "id": "mk5",
+    "name": "Pop Mie Goreng Pedas",
+    "description": "Mi goreng instan cup, 75 g",
+    "details": "Mi goreng instan dalam cup dengan bumbu pedas yang menggugah selera. Praktis disiapkan, cukup tuang air panas lalu tiriskan. Berat 75 g.",
+    "price": 9000,
+    "category": "makanan",
+    "image": "assets/images/Makanan_Ringan_5_nobg.png",
+    "stock": 15,
+    "vehicles": [],
+    "sort": 4
+  },
+  {
+    "id": "mk6",
+    "name": "Sari Roti Sandwich Cokelat",
+    "description": "Roti sandwich isi cokelat",
+    "details": "Roti sandwich yang lembut dengan isian selai cokelat manis. Mudah dibawa dan pas sebagai camilan atau sarapan ringan.",
+    "price": 9000,
+    "category": "makanan",
+    "image": "assets/images/Makanan_Ringan_6_nobg.png",
+    "stock": 2,
+    "vehicles": [],
+    "sort": 5
+  },
+  {
+    "id": "mk7",
+    "name": "Oishi Udang Pedas",
+    "description": "Snack rasa udang pedas",
+    "details": "Snack renyah dengan rasa udang pedas yang gurih. Camilan kriuk dengan sensasi pedas yang pas untuk teman menunggu.",
+    "price": 8000,
+    "category": "makanan",
+    "image": "assets/images/Makanan_Ringan_7_nobg.png",
+    "stock": 9,
+    "vehicles": [],
+    "sort": 6
+  },
+  {
+    "id": "mk8",
+    "name": "Chitato Sapi Panggang",
+    "description": "Keripik kentang bergelombang",
+    "details": "Keripik kentang bergelombang rasa sapi panggang. Teksturnya renyah dengan bumbu gurih yang melekat di setiap lembarannya.",
+    "price": 12000,
+    "category": "makanan",
+    "image": "assets/images/Makanan_Ringan_8_nobg.png",
+    "stock": 20,
+    "vehicles": [],
+    "sort": 7
+  },
+  {
+    "id": "mk9",
+    "name": "Pop Mie Ayam Bawang",
+    "description": "Mi instan cup, 75 g",
+    "details": "Mi instan dalam cup dengan rasa ayam bawang yang gurih dan ringan. Praktis, cukup seduh dengan air panas. Berat 75 g.",
+    "price": 8000,
+    "category": "makanan",
+    "image": "assets/images/Makanan_Ringan_9_nobg.png",
+    "stock": 0,
+    "vehicles": [],
+    "sort": 8
+  },
+  {
+    "id": "mk10",
+    "name": "Doritos Roasted Corn",
+    "description": "Tortilla chips jagung panggang",
+    "details": "Tortilla chips berbahan jagung dengan rasa jagung panggang yang gurih. Renyah dan cocok disantap bersama teman.",
+    "price": 14000,
+    "category": "makanan",
+    "image": "assets/images/Makanan_Ringan_10_nobg.png",
+    "stock": 6,
+    "vehicles": [],
+    "sort": 9
+  },
+  {
+    "id": "mk11",
+    "name": "Cheetos Jagung Bakar Keju",
+    "description": "Snack jagung rasa jagung bakar keju, 50 g",
+    "details": "Snack jagung renyah dengan rasa jagung bakar keju yang gurih dan sedikit manis. Bentuknya ringan dan mudah dimakan, cocok untuk camilan saat menunggu kendaraan dicuci. Berat bersih 50 g.",
+    "price": 8000,
+    "category": "makanan",
+    "image": "assets/images/Makanan_Ringan_17_nobg.png",
+    "stock": 14,
+    "vehicles": [],
+    "sort": 10
+  },
+  {
+    "id": "mk12",
+    "name": "Better Sandwich Biscuit",
+    "description": "Biskuit sandwich lapis cokelat krim vanila, 120 g",
+    "details": "Biskuit sandwich lapis cokelat dengan krim vanila di tengahnya. Dikemas dalam beberapa potong kecil sehingga mudah dibagi. Berat bersih 120 g.",
+    "price": 10000,
+    "category": "makanan",
+    "image": "assets/images/Makanan_Ringan_18_nobg.png",
+    "stock": 18,
+    "vehicles": [],
+    "sort": 11
+  },
+  {
+    "id": "mk13",
+    "name": "Roma Sari Gandum Sandwich",
+    "description": "Biskuit gandum sandwich krim susu & cokelat",
+    "details": "Biskuit gandum dengan isian krim susu dan cokelat. Rasanya manis lembut dengan tekstur biskuit yang renyah, pas ditemani minuman hangat atau dingin.",
+    "price": 9000,
+    "category": "makanan",
+    "image": "assets/images/Makanan_Ringan_19_nobg.png",
+    "stock": 3,
+    "vehicles": [],
+    "sort": 12
+  },
+  {
+    "id": "mk14",
+    "name": "Qtela Singkong Barbeque",
+    "description": "Keripik singkong rasa barbeque, 60 g",
+    "details": "Keripik singkong tipis rasa barbeque yang renyah dan gurih dengan aroma bumbu panggang. Camilan khas yang cocok untuk dinikmati kapan saja. Berat bersih 60 g.",
+    "price": 9000,
+    "category": "makanan",
+    "image": "assets/images/Makanan_Ringan_20_nobg.png",
+    "stock": 11,
+    "vehicles": [],
+    "sort": 13
+  },
+  {
+    "id": "mk15",
+    "name": "Gery Snack Bantal Chocolate",
+    "description": "Snack bantal isi krim cokelat, 75 g",
+    "details": "Snack berbentuk bantal dengan kulit renyah rasa cokelat dan isian krim cokelat yang lembut di dalamnya. Disukai anak-anak maupun dewasa. Berat bersih 75 g.",
+    "price": 9000,
+    "category": "makanan",
+    "image": "assets/images/Makanan_Ringan_21_nobg.png",
+    "stock": 9,
+    "vehicles": [],
+    "sort": 14
+  },
+  {
+    "id": "mk16",
+    "name": "KitKat",
+    "description": "Wafer renyah berlapis cokelat susu",
+    "details": "Wafer renyah berlapis cokelat susu. Mudah dipatahkan dan dinikmati per batang, cocok untuk camilan manis singkat saat istirahat.",
+    "price": 10000,
+    "category": "makanan",
+    "image": "assets/images/Makanan_Ringan_22_nobg.png",
+    "stock": 4,
+    "vehicles": [],
+    "sort": 15
+  },
+  {
+    "id": "mn1",
+    "name": "Aqua 600 ml",
+    "description": "Air mineral",
+    "details": "Air mineral dalam kemasan botol 600 ml untuk melepas dahaga selama menunggu. Segar dan praktis dibawa.",
+    "price": 5000,
+    "category": "minuman",
+    "image": "assets/images/Minuman_1_nobg.png",
+    "stock": 25,
+    "vehicles": [],
+    "sort": 16
+  },
+  {
+    "id": "mn2",
+    "name": "Le Minerale 600 ml",
+    "description": "Air mineral",
+    "details": "Air mineral dengan kandungan mineral alami dalam botol 600 ml. Menyegarkan dan pas untuk menemani perjalanan.",
+    "price": 5000,
+    "category": "minuman",
+    "image": "assets/images/Minuman_2_nobg.png",
+    "stock": 30,
+    "vehicles": [],
+    "sort": 17
+  },
+  {
+    "id": "mn3",
+    "name": "Golda Dolce Latte",
+    "description": "Kopi susu dingin siap minum",
+    "details": "Kopi susu dingin siap minum dengan rasa latte yang manis dan lembut. Pilihan tepat untuk menemani waktu menunggu.",
+    "price": 8000,
+    "category": "minuman",
+    "image": "assets/images/Minuman_3_nobg.png",
+    "stock": 5,
+    "vehicles": [],
+    "sort": 18
+  },
+  {
+    "id": "mn4",
+    "name": "Coca-Cola",
+    "description": "Minuman bersoda, botol",
+    "details": "Minuman bersoda dengan rasa cola yang segar dan sensasi karbonasi. Paling nikmat saat disajikan dingin.",
+    "price": 7000,
+    "category": "minuman",
+    "image": "assets/images/Minuman_4_nobg.png",
+    "stock": 3,
+    "vehicles": [],
+    "sort": 19
+  },
+  {
+    "id": "mn5",
+    "name": "Sprite",
+    "description": "Minuman bersoda lemon-lime",
+    "details": "Minuman bersoda rasa lemon-lime yang segar dan jernih. Menyegarkan saat cuaca panas.",
+    "price": 7000,
+    "category": "minuman",
+    "image": "assets/images/Minuman_5_nobg.png",
+    "stock": 18,
+    "vehicles": [],
+    "sort": 20
+  },
+  {
+    "id": "mn6",
+    "name": "Teh Pucuk Harum",
+    "description": "Teh manis siap minum",
+    "details": "Teh manis siap minum dengan aroma melati yang harum. Rasanya ringan dan segar saat diminum dingin.",
+    "price": 6000,
+    "category": "minuman",
+    "image": "assets/images/Minuman_6_nobg.png",
+    "stock": 4,
+    "vehicles": [],
+    "sort": 21
+  },
+  {
+    "id": "mn7",
+    "name": "Miliku Susu Cokelat",
+    "description": "Susu UHT rasa cokelat premium, botol",
+    "details": "Susu UHT rasa cokelat premium dalam kemasan botol yang praktis. Dibuat dari susu sapi dengan rasa cokelat yang lembut dan manis. Pas untuk teman camilan.",
+    "price": 5000,
+    "category": "minuman",
+    "image": "assets/images/Minuman_11_nobg.png",
+    "stock": 20,
+    "vehicles": [],
+    "sort": 22
+  },
+  {
+    "id": "mn8",
+    "name": "Nipis Madu Lime Soda",
+    "description": "Minuman soda rasa jeruk nipis madu, botol",
+    "details": "Minuman soda rasa jeruk nipis dan madu yang segar dengan sensasi karbonasi ringan. Segar diminum dingin, cocok untuk melepas dahaga.",
+    "price": 6000,
+    "category": "minuman",
+    "image": "assets/images/Minuman_12_nobg.png",
+    "stock": 12,
+    "vehicles": [],
+    "sort": 23
+  },
+  {
+    "id": "mn9",
+    "name": "Teh Kotak Teh Melati",
+    "description": "Teh melati kemasan kotak, 200 ml",
+    "details": "Teh melati dalam kemasan kotak yang praktis. Rasanya manis harum dan menyegarkan. Isi bersih 200 ml.",
+    "price": 4500,
+    "category": "minuman",
+    "image": "assets/images/Minuman_13_nobg.png",
+    "stock": 4,
+    "vehicles": [],
+    "sort": 24
+  },
+  {
+    "id": "mn10",
+    "name": "Pocari Sweat 500 ml",
+    "description": "Minuman isotonik, botol 500 ml",
+    "details": "Minuman isotonik dengan rasa segar yang membantu mengganti cairan dan elektrolit tubuh. Cocok diminum saat lelah atau setelah beraktivitas. Botol 500 ml.",
+    "price": 8000,
+    "category": "minuman",
+    "image": "assets/images/Minuman_14_nobg.png",
+    "stock": 16,
+    "vehicles": [],
+    "sort": 25
+  },
+  {
+    "id": "ol1",
+    "name": "Pertamina Enduro Matic",
+    "description": "SAE 10W-30 • 0,8 L • motor matic",
+    "details": "Oli mesin 4 tak untuk sepeda motor matic dengan kekentalan SAE 10W-30. Isi 0,8 liter, cocok untuk pemakaian harian dan penggantian oli berkala.",
+    "price": 48000,
+    "category": "oli",
+    "image": "assets/images/Oli_1_nobg.png",
+    "stock": 10,
+    "vehicles": [
+      "motor"
+    ],
+    "sort": 26
+  },
+  {
+    "id": "ol3",
+    "name": "Castrol Power1 4T",
+    "description": "SAE 10W-40 • 1 L • full synthetic",
+    "details": "Oli mesin 4 tak full synthetic dengan kekentalan SAE 10W-40. Isi 1 liter, dirancang untuk melindungi mesin motor pada pemakaian harian maupun berkendara lebih sporty.",
+    "price": 95000,
+    "category": "oli",
+    "image": "assets/images/Oli_3_nobg.png",
+    "stock": 2,
+    "vehicles": [
+      "motor"
+    ],
+    "sort": 27
+  },
+  {
+    "id": "ol5",
+    "name": "Federal Ultratec 4T",
+    "description": "SAE 10W-40 • 0,8 L • motor",
+    "details": "Oli mesin 4 tak dengan kekentalan SAE 10W-40, isi 0,8 liter. Cocok untuk sepeda motor dan penggantian oli rutin.",
+    "price": 52000,
+    "category": "oli",
+    "image": "assets/images/Oli_5_nobg.png",
+    "stock": 7,
+    "vehicles": [
+      "motor"
+    ],
+    "sort": 28
+  },
+  {
+    "id": "ol6",
+    "name": "Shell Advance Ultra 4T",
+    "description": "SAE 15W-50 • 1 L • 100% synthetic",
+    "details": "Oli mesin 4 tak 100% synthetic dengan kekentalan SAE 15W-50. Isi 1 liter, untuk motor yang membutuhkan perlindungan mesin lebih baik.",
+    "price": 125000,
+    "category": "oli",
+    "image": "assets/images/Oli_6_nobg.png",
+    "stock": 1,
+    "vehicles": [
+      "motor"
+    ],
+    "sort": 29
+  },
+  {
+    "id": "ol4",
+    "name": "Shell Helix AH",
+    "description": "SAE 15W-40 • 4 L • mobil",
+    "details": "Oli mesin mobil dengan kekentalan SAE 15W-40. Isi 4 liter, cocok untuk penggantian oli berkala pada mobil.",
+    "price": 285000,
+    "category": "oli",
+    "image": "assets/images/Oli_4_nobg.png",
+    "stock": 6,
+    "vehicles": [
+      "mobil"
+    ],
+    "sort": 30
+  },
+  {
+    "id": "ol2",
+    "name": "Fastron Gold",
+    "description": "SAE 5W-30 • 5 L • synthetic",
+    "details": "Oli mesin mobil synthetic dengan kekentalan SAE 5W-30. Isi 5 liter, cocok untuk mesin mobil modern.",
+    "price": 395000,
+    "category": "oli",
+    "image": "assets/images/Oli_2_nobg.png",
+    "stock": 3,
+    "vehicles": [
+      "mobil"
+    ],
+    "sort": 31
+  },
+  {
+    "id": "ol7",
+    "name": "Castrol GTX Ultraclean",
+    "description": "SAE 5W-20 • 4,73 L (5 qt) • mobil bensin",
+    "details": "Oli mesin untuk mobil bensin dengan kekentalan SAE 5W-20. Kemasan 4,73 liter (5 quart). Pastikan viskositasnya sesuai rekomendasi buku manual kendaraan Anda.",
+    "price": 420000,
+    "category": "oli",
+    "image": "assets/images/Oli_11_nobg.png",
+    "stock": 4,
+    "vehicles": [
+      "mobil"
+    ],
+    "sort": 32
+  },
+  {
+    "id": "ol8",
+    "name": "OLIM 100% Synthetic",
+    "description": "SAE 5W-40 • 4 L • synthetic • mobil",
+    "details": "Oli mesin 100% synthetic dengan kekentalan SAE 5W-40, spesifikasi API SN/CF dan ACEA C3/B3/B4. Isi 4 liter, dapat dipakai untuk mobil bensin maupun diesel.",
+    "price": 380000,
+    "category": "oli",
+    "image": "assets/images/Oli_12_nobg.png",
+    "stock": 3,
+    "vehicles": [
+      "mobil"
+    ],
+    "sort": 33
+  },
+  {
+    "id": "ol9",
+    "name": "elf Evolution Full-Tech FE",
+    "description": "SAE 5W-30 • 1 L • full synthetic • mobil",
+    "details": "Oli mesin full synthetic dengan kekentalan SAE 5W-30 untuk mobil. Kemasan 1 liter, cocok untuk menambah atau mengganti oli sesuai kebutuhan mesin.",
+    "price": 115000,
+    "category": "oli",
+    "image": "assets/images/Oli_13_nobg.png",
+    "stock": 8,
+    "vehicles": [
+      "mobil"
+    ],
+    "sort": 34
+  },
+  {
+    "id": "ol10",
+    "name": "Mobil Super Everyday Protection",
+    "description": "SAE 10W-30 • 4 L • mineral • mobil",
+    "details": "Oli mesin mineral untuk perlindungan sehari-hari dengan kekentalan SAE 10W-30 dan spesifikasi API SP. Isi 4 liter, dirancang untuk menjaga usia mesin mobil.",
+    "price": 300000,
+    "category": "oli",
+    "image": "assets/images/Oli_14_nobg.png",
+    "stock": 5,
+    "vehicles": [
+      "mobil"
+    ],
+    "sort": 35
+  }
+]
