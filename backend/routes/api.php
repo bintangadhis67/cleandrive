@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CatalogController;
 use App\Http\Controllers\Api\GarageController;
 use App\Http\Controllers\Api\LoyaltyController;
+use App\Http\Controllers\Api\MembershipController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\VoucherController;
@@ -65,6 +66,15 @@ Route::middleware(ForceJsonResponse::class)->group(function () {
         Route::get('loyalty', [LoyaltyController::class, 'show']);
         Route::post('loyalty/check-in', [LoyaltyController::class, 'checkIn']);
         Route::post('loyalty/promos/{id}/claim', [LoyaltyController::class, 'claimPromo'])->where('id', '[A-Za-z0-9\-]+');
+
+        // ---- membership (sandbox) ----
+        Route::get('membership', [MembershipController::class, 'show']);
+        Route::post('membership/purchase', [MembershipController::class, 'purchase'])->middleware('throttle:20,1');
+        Route::post('membership/cancel', [MembershipController::class, 'cancel']);
+        Route::get('membership/orders/{id}', [MembershipController::class, 'order'])->whereNumber('id');
+        Route::post('membership/orders/{id}/confirm', [MembershipController::class, 'confirm'])->whereNumber('id');
+        Route::post('membership/orders/{id}/simulate-qris', [MembershipController::class, 'simulateQris'])->whereNumber('id');
+        Route::delete('membership/orders/{id}', [MembershipController::class, 'cancelOrder'])->whereNumber('id');
 
         // ---- garasi kendaraan ----
         Route::get('garage', [GarageController::class, 'index']);

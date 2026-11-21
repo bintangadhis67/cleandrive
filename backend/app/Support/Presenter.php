@@ -6,6 +6,7 @@ use App\Models\AppNotification;
 use App\Models\Booking;
 use App\Models\CoinEntry;
 use App\Models\Membership;
+use App\Models\MembershipOrder;
 use App\Models\MembershipTransaction;
 use App\Models\Payment;
 use App\Models\Product;
@@ -189,6 +190,24 @@ class Presenter
             'target' => $n->target,
             'push' => (bool) $n->push,
             'read' => (bool) $n->is_read,
+        ];
+    }
+
+    /** Dibaca MembershipOrder di Flutter. */
+    public static function membershipOrder(MembershipOrder $o): array
+    {
+        return [
+            'id' => $o->id,
+            'trx' => $o->trx,
+            'tier' => $o->tier,
+            'amount' => (int) $o->amount,
+            'method' => $o->method,
+            'status' => $o->status,
+            'expires_at' => self::dt($o->expires_at),
+            'renewal' => (bool) $o->renewal,
+            'qr_string' => $o->qr_string,
+            'balance' => $o->balance === null ? null : (int) $o->balance,
+            'sandbox' => (bool) $o->sandbox,
         ];
     }
 }
