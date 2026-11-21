@@ -5,8 +5,10 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CatalogController;
 use App\Http\Controllers\Api\GarageController;
+use App\Http\Controllers\Api\LoyaltyController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\VoucherController;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\ForceJsonResponse;
 use Illuminate\Support\Facades\Route;
@@ -53,6 +55,16 @@ Route::middleware(ForceJsonResponse::class)->group(function () {
         Route::get('payments/{id}', [PaymentController::class, 'show'])->whereNumber('id');
         Route::post('payments/{id}/confirm', [PaymentController::class, 'confirm'])->whereNumber('id');
         Route::post('payments/{id}/simulate-qris', [PaymentController::class, 'simulateQris'])->whereNumber('id');
+
+        // ---- voucher ----
+        Route::get('vouchers', [VoucherController::class, 'index']);
+        Route::get('vouchers/quota', [VoucherController::class, 'quota']); // harus di atas vouchers/{id}
+        Route::post('vouchers/{id}/claim', [VoucherController::class, 'claim'])->whereNumber('id');
+
+        // ---- Coins ----
+        Route::get('loyalty', [LoyaltyController::class, 'show']);
+        Route::post('loyalty/check-in', [LoyaltyController::class, 'checkIn']);
+        Route::post('loyalty/promos/{id}/claim', [LoyaltyController::class, 'claimPromo'])->where('id', '[A-Za-z0-9\-]+');
 
         // ---- garasi kendaraan ----
         Route::get('garage', [GarageController::class, 'index']);
