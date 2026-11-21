@@ -3,6 +3,9 @@
 namespace App\Support;
 
 use App\Models\Booking;
+use App\Models\CoinEntry;
+use App\Models\Membership;
+use App\Models\MembershipTransaction;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\User;
@@ -109,6 +112,52 @@ class Presenter
             'balance' => $p->balance === null ? null : (int) $p->balance,
             'sandbox' => (bool) $p->sandbox,
             'coins_earned' => (int) $p->coins_earned,
+        ];
+    }
+
+    /** Dibaca CoinEntry.fromJson di Flutter. */
+    public static function coinEntry(CoinEntry $e): array
+    {
+        return [
+            'id' => $e->id,
+            'kind' => $e->kind,
+            'title' => $e->title,
+            'note' => $e->note ?? '',
+            'amount' => (int) $e->amount,
+            'created_at' => self::dt($e->created_at),
+        ];
+    }
+
+    /** Langganan pengguna. status "active" yang masa berlakunya sudah lewat dikirim sebagai "expired". */
+    public static function membership(Membership $m): array
+    {
+        $status = $m->status === 'active' && $m->end_date && $m->end_date->isPast() ? 'expired' : $m->status;
+
+        return [
+            'id' => $m->id,
+            'tier' => $m->tier,
+            'status' => $status,
+            'start_date' => self::dt($m->start_date),
+            'end_date' => self::dt($m->end_date),
+            'cancel_at_end' => (bool) $m->cancel_at_end,
+            'free_total' => (int) $m->free_total,
+            'free_used' => (int) $m->free_used,
+            'free_weeks' => array_values($m->free_weeks ?? []),
+        ];
+    }
+
+    /** Riwayat pembelian membership. */
+    public static function membershipTx(MembershipTransaction $t): array
+    {
+        return [
+            'id' => $t->id,
+            'trx' => $t->trx,
+            'tier' => $t->tier,
+            'amount' => (int) $t->amount,
+            'method' => $t->method,
+            'renewal' => (bool) $t->renewal,
+            'refund' => (bool) $t->refund,
+            'created_at' => self::dt($t->created_at),
         ];
     }
 }

@@ -1,9 +1,11 @@
 <?php
 
+use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CatalogController;
 use App\Http\Controllers\Api\PaymentController;
+use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\ForceJsonResponse;
 use Illuminate\Support\Facades\Route;
 
@@ -49,5 +51,14 @@ Route::middleware(ForceJsonResponse::class)->group(function () {
         Route::get('payments/{id}', [PaymentController::class, 'show'])->whereNumber('id');
         Route::post('payments/{id}/confirm', [PaymentController::class, 'confirm'])->whereNumber('id');
         Route::post('payments/{id}/simulate-qris', [PaymentController::class, 'simulateQris'])->whereNumber('id');
+
+        // ---- admin (khusus role admin) ----
+        Route::middleware(EnsureAdmin::class)->prefix('admin')->group(function () {
+            Route::post('verify', [AdminController::class, 'verify']);
+            Route::post('bookings/{id}/advance', [AdminController::class, 'advance'])->whereNumber('id');
+            Route::get('summary', [AdminController::class, 'summary']);
+            Route::get('reviews', [AdminController::class, 'reviews']);
+            Route::get('overview', [AdminController::class, 'overview']);
+        });
     });
 });

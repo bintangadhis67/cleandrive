@@ -182,7 +182,6 @@ class PaymentService
                 // Beli langsung: begitu dibayar, pembelian selesai (tanpa antrean/proses).
                 $b->status = 3;
                 $b->verified = true;
-                $b->verified_at = now();
                 $b->est_finish = now();
             }
             if ($p->coins_used > 0) {
