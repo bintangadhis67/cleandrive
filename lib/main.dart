@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'core/app_state.dart';
+import 'data/api_repository.dart';
 import 'core/theme.dart';
 import 'data/mock_repository.dart';
 import 'screens/admin/admin.dart';
@@ -14,9 +15,8 @@ import 'screens/home/customer.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('id_ID');
-  // Frontend berdiri sendiri: semua data memakai MockRepository (data tiruan di memori).
-  // Saat nanti diintegrasikan dengan backend, cukup ganti dengan Repository yang memanggil API.
-  app.init(MockRepository());
+  const useMock = bool.fromEnvironment('USE_MOCK');
+app.init(useMock ? MockRepository() : ApiRepository());
   runApp(const CleanDriveApp());
 }
 
