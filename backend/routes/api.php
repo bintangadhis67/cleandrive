@@ -4,6 +4,8 @@ use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CatalogController;
+use App\Http\Controllers\Api\GarageController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\ForceJsonResponse;
@@ -51,6 +53,18 @@ Route::middleware(ForceJsonResponse::class)->group(function () {
         Route::get('payments/{id}', [PaymentController::class, 'show'])->whereNumber('id');
         Route::post('payments/{id}/confirm', [PaymentController::class, 'confirm'])->whereNumber('id');
         Route::post('payments/{id}/simulate-qris', [PaymentController::class, 'simulateQris'])->whereNumber('id');
+
+        // ---- garasi kendaraan ----
+        Route::get('garage', [GarageController::class, 'index']);
+        Route::post('garage', [GarageController::class, 'store']);
+        Route::put('garage/{id}', [GarageController::class, 'update'])->whereNumber('id');
+        Route::delete('garage/{id}', [GarageController::class, 'destroy'])->whereNumber('id');
+
+        // ---- notifikasi ----
+        Route::get('notifications', [NotificationController::class, 'index']);
+        Route::post('notifications/read-all', [NotificationController::class, 'readAll']);
+        Route::post('notifications/{id}/read', [NotificationController::class, 'read'])->whereNumber('id');
+        Route::delete('notifications/{id}', [NotificationController::class, 'destroy'])->whereNumber('id');
 
         // ---- admin (khusus role admin) ----
         Route::middleware(EnsureAdmin::class)->prefix('admin')->group(function () {

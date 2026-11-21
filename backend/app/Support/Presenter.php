@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\AppNotification;
 use App\Models\Booking;
 use App\Models\CoinEntry;
 use App\Models\Membership;
@@ -9,6 +10,7 @@ use App\Models\MembershipTransaction;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\User;
+use App\Models\Vehicle;
 use Carbon\CarbonInterface;
 
 /**
@@ -158,6 +160,35 @@ class Presenter
             'renewal' => (bool) $t->renewal,
             'refund' => (bool) $t->refund,
             'created_at' => self::dt($t->created_at),
+        ];
+    }
+
+    /** Dibaca GarageVehicle.fromJson di Flutter. */
+    public static function vehicle(Vehicle $v): array
+    {
+        return [
+            'id' => $v->id,
+            'type' => $v->type,
+            'brand' => $v->brand,
+            'model' => $v->model,
+            'year' => (int) $v->year,
+            'color' => $v->color ?? '',
+            'plate' => $v->plate,
+        ];
+    }
+
+    /** Dibaca AppNotification.fromJson di Flutter (kolom is_read dikirim sebagai "read"). */
+    public static function notification(AppNotification $n): array
+    {
+        return [
+            'id' => $n->id,
+            'type' => $n->type,
+            'title' => $n->title,
+            'body' => $n->body ?? '',
+            'created_at' => self::dt($n->created_at),
+            'target' => $n->target,
+            'push' => (bool) $n->push,
+            'read' => (bool) $n->is_read,
         ];
     }
 }
