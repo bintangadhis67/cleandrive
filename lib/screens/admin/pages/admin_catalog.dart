@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show FilteringTextInputFormatter;
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/app_state.dart';
 import '../../../core/theme.dart';
+import '../../../data/repository.dart' show ApiException;
 import '../../../models/catalog.dart';
+import '../../../models/catalog_remote.dart';
 import '../../../models/models.dart';
+import '../../shop/shop.dart' show ProductImage;
 import '../shared/admin_data.dart';
 import '../shared/admin_ui.dart';
 
 // ---------------------------------------------------------------------------
-// LAYANAN & PRODUK: paket cuci, jasa ganti oli, produk toko (gambar, harga, stok).
-// Data dibaca dari models.dart / catalog.dart dan stok dari app.stockOf.
-// Tambah/Edit/Hapus belum punya backend, jadi menampilkan dialog yang jujur.
+// LAYANAN & PRODUK: paket cuci, jasa ganti oli, produk toko (foto, harga, stok).
+// Produk (oli dan Toko): tambah, ubah, hapus, stok, dan foto tersimpan di backend.
+// Paket cuci dan harga jasa ganti oli masih dibaca dari aplikasi (menyusul).
 // ---------------------------------------------------------------------------
 class AdminCatalogPage extends StatefulWidget {
   const AdminCatalogPage({super.key});
@@ -24,12 +29,17 @@ class _AdminCatalogPageState extends State<AdminCatalogPage> {
   String _q = '';
   ProductCategory? _cat;
 
+  void _toast(String m) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+  }
+
   Widget _img(Product p) => Container(
         width: 46,
         height: 46,
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(color: kBg, borderRadius: BorderRadius.circular(12)),
-        child: Image.asset(p.image, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_outlined, color: kMuted, size: 20)),
+        child: ProductImage(p, height: 38, cacheWidth: 120),
       );
 
   Widget _stock(Product p) {
@@ -39,7 +49,8 @@ class _AdminCatalogPageState extends State<AdminCatalogPage> {
     return StatusBadge('$s tersedia', kGreen);
   }
 
-  Widget _actions(String what) => Row(mainAxisSize: MainAxisSize.min, children: [
+  /// Paket cuci: belum tersambung ke backend.
+  Widget _pkgActions(String what) => Row(mainAxisSize: MainAxisSize.min, children: [
         IconButton(
           tooltip: 'Edit',
           visualDensity: VisualDensity.compact,
@@ -53,6 +64,58 @@ class _AdminCatalogPageState extends State<AdminCatalogPage> {
           icon: const Icon(Icons.delete_outline_rounded, size: 19, color: kError),
         ),
       ]);
+
+  /// Produk: sudah tersambung ke backend.
+  Widget _productActions(Product p) => Row(mainAxisSize: MainAxisSize.min, children: [
+        IconButton(
+          tooltip: 'Edit',
+          visualDensity: VisualDensity.compact,
+          onPressed: () => _editProduct(product: p),
+          icon: const Icon(Icons.edit_outlined, size: 19, color: kBlue),
+        ),
+        IconButton(
+          tooltip: 'Hapus',
+          visualDensity: VisualDensity.compact,
+          onPressed: () => _deleteProduct(p),
+          icon: const Icon(Icons.delete_outline_rounded, size: 19, color: kError),
+        ),
+      ]);
+
+  Future<void> _editProduct({Product? product, ProductCategory? fixed}) async {
+    final saved = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _ProductDialog(product: product, fixedCategory: fixed),
+    );
+    if (saved == true) _toast(product == null ? 'Produk ditambahkan.' : 'Perubahan disimpan.');
+  }
+
+  Future<void> _deleteProduct(Product p) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus produk?'),
+        content: Text('${p.name} akan dihapus dari Toko. Produk yang sudah pernah dipesan hanya dinonaktifkan supaya riwayat pesanan tetap utuh.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: kError),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      final msg = await app.repo.deleteProduct(p.id);
+      await app.loadCatalog(force: true);
+      await app.refreshAll();
+      _toast(msg);
+    } on ApiException catch (e) {
+      _toast(e.message);
+    }
+  }
 
   int _orders(WashPackage p) =>
       adminData.summary?.byPackage[p.name] ?? app.bookings.where((b) => !b.cancelled && b.pack.name == p.name).length;
@@ -75,7 +138,7 @@ class _AdminCatalogPageState extends State<AdminCatalogPage> {
                 Text(rp(p.priceFor(VehicleType.motor)), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                 Text(rp(p.priceFor(VehicleType.mobil)), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                 Text(fmtNum(_orders(p)), style: const TextStyle(fontSize: 13)),
-                leftCell(_actions('paket cuci')),
+                leftCell(_pkgActions('paket cuci')),
               ],
           ],
         ),
@@ -98,6 +161,7 @@ class _AdminCatalogPageState extends State<AdminCatalogPage> {
           AdminTable(
             pager: false,
             minWidth: 820,
+            emptyText: 'Belum ada oli. Tekan "Tambah Oli" untuk menambahkan.',
             cols: const [TCol('Oli', flex: 4), TCol('Kendaraan', flex: 2), TCol('Harga', flex: 2), TCol('Stok', flex: 2), TCol('Aksi', flex: 2)],
             rows: [
               for (final p in oils)
@@ -106,7 +170,7 @@ class _AdminCatalogPageState extends State<AdminCatalogPage> {
                   Text(p.vehicleTag.isEmpty ? 'Semua' : p.vehicleTag, style: const TextStyle(fontSize: 13)),
                   Text(rp(p.price), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                   leftCell(_stock(p)),
-                  leftCell(_actions('oli')),
+                  leftCell(_productActions(p)),
                 ],
             ],
           ),
@@ -117,7 +181,7 @@ class _AdminCatalogPageState extends State<AdminCatalogPage> {
 
   Widget _shopTab() {
     final q = _q.trim().toLowerCase();
-    final list = products.where((p) => (_cat == null || p.category == _cat) && (q.isEmpty || p.name.toLowerCase().contains(q))).toList();
+    final list = catalogProducts.where((p) => p.active && (_cat == null || p.category == _cat) && (q.isEmpty || p.name.toLowerCase().contains(q))).toList();
     return AdminCard(
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -141,7 +205,7 @@ class _AdminCatalogPageState extends State<AdminCatalogPage> {
                 Text(p.category.label, style: const TextStyle(fontSize: 13)),
                 Text(rp(p.price), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                 leftCell(_stock(p)),
-                leftCell(_actions('produk')),
+                leftCell(_productActions(p)),
               ],
           ],
         ),
@@ -156,16 +220,254 @@ class _AdminCatalogPageState extends State<AdminCatalogPage> {
           const labels = ['Paket Cuci', 'Ganti Oli', 'Produk Toko'];
           const adds = ['Tambah Paket', 'Tambah Oli', 'Tambah Produk'];
           return AdminPageBody(children: [
-            const InfoBanner('Daftar ini dibaca dari katalog aplikasi. Tombol tambah, edit, dan hapus belum tersambung ke backend, sehingga belum menyimpan perubahan.'),
+            const InfoBanner('Produk (oli dan Toko) sudah tersambung ke backend: tambah, ubah, hapus, stok, dan foto tersimpan di server. Paket cuci dan harga jasa ganti oli masih dibaca dari aplikasi dan akan menyusul.'),
             const SizedBox(height: 16),
             Row(children: [
               Expanded(child: PillBar(labels: labels, index: _tab, onChanged: (i) => setState(() => _tab = i))),
               const SizedBox(width: 12),
-              RedAction(adds[_tab], () => showNotConnected(context, adds[_tab]), icon: Icons.add_rounded),
+              RedAction(adds[_tab], () {
+                if (_tab == 0) {
+                  showNotConnected(context, adds[0]);
+                } else if (_tab == 1) {
+                  _editProduct(fixed: ProductCategory.oli);
+                } else {
+                  _editProduct();
+                }
+              }, icon: Icons.add_rounded),
             ]),
             const SizedBox(height: 8),
             if (_tab == 0) _washTab() else if (_tab == 1) _oilTab() else _shopTab(),
           ]);
         },
       );
+}
+
+// ---------------------------------------------------------------------------
+// Form tambah / ubah produk, termasuk memilih foto dari perangkat.
+// ---------------------------------------------------------------------------
+class _ProductDialog extends StatefulWidget {
+  final Product? product;
+
+  /// Tab Ganti Oli mengunci kategori ke Oli.
+  final ProductCategory? fixedCategory;
+  const _ProductDialog({this.product, this.fixedCategory});
+
+  @override
+  State<_ProductDialog> createState() => _ProductDialogState();
+}
+
+class _ProductDialogState extends State<_ProductDialog> {
+  late final TextEditingController _name = TextEditingController(text: widget.product?.name ?? '');
+  late final TextEditingController _desc = TextEditingController(text: widget.product?.desc ?? '');
+  late final TextEditingController _details = TextEditingController(text: widget.product?.details ?? '');
+  late final TextEditingController _price = TextEditingController(text: widget.product == null ? '' : '${widget.product!.price}');
+  late final TextEditingController _stock = TextEditingController(text: widget.product == null ? '20' : '${app.stockOf(widget.product!)}');
+  late ProductCategory _cat = widget.product?.category ?? widget.fixedCategory ?? ProductCategory.makanan;
+  late final Set<VehicleType> _vehicles = <VehicleType>{...?widget.product?.vehicles};
+  PickedImage? _picked;
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _desc.dispose();
+    _details.dispose();
+    _price.dispose();
+    _stock.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pick() async {
+    try {
+      final x = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 1400);
+      if (x == null) return;
+      final bytes = await x.readAsBytes();
+      if (bytes.length > 2 * 1024 * 1024) {
+        setState(() => _error = 'Ukuran foto maksimal 2 MB.');
+        return;
+      }
+      setState(() {
+        _picked = PickedImage(bytes, x.name);
+        _error = null;
+      });
+    } catch (_) {
+      setState(() => _error = 'Foto tidak dapat dibuka.');
+    }
+  }
+
+  Future<void> _save() async {
+    final name = _name.text.trim();
+    final price = int.tryParse(_price.text.trim());
+    final stock = int.tryParse(_stock.text.trim());
+    if (name.isEmpty) {
+      setState(() => _error = 'Nama produk wajib diisi.');
+      return;
+    }
+    if (price == null || price <= 0) {
+      setState(() => _error = 'Harga harus berupa angka lebih dari 0.');
+      return;
+    }
+    if (stock == null || stock < 0) {
+      setState(() => _error = 'Stok harus berupa angka 0 atau lebih.');
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      final p = Product(
+        widget.product?.id ?? '',
+        name,
+        _desc.text.trim(),
+        price,
+        _cat,
+        widget.product?.image ?? '',
+        vehicles: _cat == ProductCategory.oli ? _vehicles : const <VehicleType>{},
+        stock: stock,
+        detailsText: _details.text.trim(),
+      );
+      await app.repo.saveProduct(p, image: _picked);
+      await app.loadCatalog(force: true);
+      await app.refreshAll();
+      if (mounted) Navigator.pop(context, true);
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = e.message;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = 'Gagal menyimpan. Periksa koneksi ke server lalu coba lagi.';
+        });
+      }
+    }
+  }
+
+  Widget _photo() {
+    final Widget preview;
+    if (_picked != null) {
+      preview = Image.memory(_picked!.bytes, fit: BoxFit.contain);
+    } else if (widget.product != null && widget.product!.image.isNotEmpty) {
+      preview = ProductImage(widget.product!, height: 100);
+    } else {
+      preview = const Icon(Icons.add_photo_alternate_outlined, size: 40, color: kMuted);
+    }
+    return Row(children: [
+      Container(
+        width: 120,
+        height: 120,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(color: kBg, borderRadius: BorderRadius.circular(16)),
+        child: Center(child: preview),
+      ),
+      const SizedBox(width: 14),
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          OutlinedButton.icon(
+            onPressed: _saving ? null : _pick,
+            icon: const Icon(Icons.upload_rounded, size: 18),
+            label: Text(_picked == null ? 'Pilih foto' : 'Ganti foto'),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _picked != null ? _picked!.name : 'PNG, JPG, atau WEBP, maksimal 2 MB. Foto dengan latar transparan paling bagus.',
+            style: const TextStyle(color: kMuted, fontSize: 12),
+          ),
+        ]),
+      ),
+    ]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final editing = widget.product != null;
+    return AlertDialog(
+      title: Text(editing ? 'Ubah produk' : 'Tambah produk', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+      content: SizedBox(
+        width: 460,
+        child: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _photo(),
+            const SizedBox(height: 16),
+            TextField(controller: _name, enabled: !_saving, decoration: const InputDecoration(labelText: 'Nama produk')),
+            const SizedBox(height: 10),
+            TextField(controller: _desc, enabled: !_saving, decoration: const InputDecoration(labelText: 'Deskripsi singkat')),
+            const SizedBox(height: 10),
+            TextField(controller: _details, enabled: !_saving, maxLines: 3, decoration: const InputDecoration(labelText: 'Keterangan lengkap')),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(
+                child: TextField(
+                  controller: _price,
+                  enabled: !_saving,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(labelText: 'Harga (Rp)'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _stock,
+                  enabled: !_saving,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(labelText: 'Stok'),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 14),
+            const Text('Kategori', style: TextStyle(fontSize: 12.5, color: kMuted, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 6),
+            Wrap(spacing: 8, children: [
+              for (final c in ProductCategory.values)
+                ChoiceChip(
+                  label: Text(c.label),
+                  selected: _cat == c,
+                  onSelected: (_saving || widget.fixedCategory != null) ? null : (_) => setState(() => _cat = c),
+                ),
+            ]),
+            if (_cat == ProductCategory.oli) ...[
+              const SizedBox(height: 14),
+              const Text('Cocok untuk kendaraan', style: TextStyle(fontSize: 12.5, color: kMuted, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 6),
+              Wrap(spacing: 8, children: [
+                for (final v in VehicleType.values)
+                  FilterChip(
+                    label: Text(v.label),
+                    selected: _vehicles.contains(v),
+                    onSelected: _saving
+                        ? null
+                        : (s) => setState(() {
+                              if (s) {
+                                _vehicles.add(v);
+                              } else {
+                                _vehicles.remove(v);
+                              }
+                            }),
+                  ),
+              ]),
+              const SizedBox(height: 4),
+              const Text('Tidak dipilih = cocok untuk semua kendaraan.', style: TextStyle(fontSize: 12, color: kMuted)),
+            ],
+            if (_error != null) ...[
+              const SizedBox(height: 14),
+              Text(_error!, style: const TextStyle(color: kError, fontSize: 13, fontWeight: FontWeight.w600)),
+            ],
+          ]),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: _saving ? null : () => Navigator.pop(context), child: const Text('Batal')),
+        FilledButton(onPressed: _saving ? null : _save, child: Text(_saving ? 'Menyimpan...' : 'Simpan')),
+      ],
+    );
+  }
 }

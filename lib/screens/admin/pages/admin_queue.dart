@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../orders/orders.dart' show OrderThumb;
 import '../../../core/app_state.dart';
 import '../../../core/theme.dart';
 import '../../../models/models.dart';
@@ -111,7 +112,7 @@ class _QueueCard extends StatelessWidget {
     return AdminCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          ServiceThumb(b.pack, b.vehicle, width: 76),
+          b.pack.isShop ? OrderThumb(b, size: 72) : ServiceThumb(b.pack, b.vehicle, width: 76),
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

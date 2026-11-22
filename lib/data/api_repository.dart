@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/catalog_remote.dart';
 import '../models/loyalty_models.dart';
 import '../models/membership_models.dart';
 import '../models/models.dart';
@@ -96,6 +97,11 @@ class ApiRepository implements Repository {
       throw ApiException('Tidak dapat terhubung ke server ($_base). Pastikan backend sedang berjalan.');
     }
 
+    return _finish(res, auth: auth);
+  }
+
+  /// Membaca jawaban server: 2xx = isi JSON, selain itu dilempar sebagai [ApiException].
+  Future<dynamic> _finish(http.Response res, {required bool auth}) async {
     dynamic data;
     if (res.bodyBytes.isNotEmpty) {
       try {
@@ -113,6 +119,29 @@ class ApiRepository implements Repository {
     }
     final msg = (data is Map && data['message'] is String) ? data['message'] as String : 'Terjadi kesalahan (${res.statusCode}).';
     throw ApiException(msg);
+  }
+
+  /// Mengirim form dengan file (multipart), dipakai untuk unggah foto produk.
+  Future<dynamic> _multipart(String path, Map<String, String> fields, PickedImage? image) async {
+    await _loadToken();
+    final req = http.MultipartRequest('POST', Uri.parse('$_base$path'))
+      ..headers['Accept'] = 'application/json'
+      ..fields.addAll(fields);
+    if (_token != null) req.headers['Authorization'] = 'Bearer $_token';
+    if (image != null) {
+      req.files.add(http.MultipartFile.fromBytes('image', image.bytes, filename: image.name));
+    }
+
+    final http.Response res;
+    try {
+      final streamed = await _client.send(req).timeout(_timeout);
+      res = await http.Response.fromStream(streamed);
+    } on TimeoutException {
+      throw ApiException('Server tidak merespons. Coba lagi sebentar lagi.');
+    } on http.ClientException {
+      throw ApiException('Tidak dapat terhubung ke server ($_base). Pastikan backend sedang berjalan.');
+    }
+    return _finish(res, auth: true);
   }
 
   // ------------------------------------------------------------------ pembantu parsing
@@ -429,6 +458,51 @@ class ApiRepository implements Repository {
 
   @override
   Future<List<Booking>> allReviews() async => _maps(await _call('GET', '/admin/reviews')).map(Booking.fromJson).toList();
+
+  // ------------------------------------------------------------------ katalog
+
+  static Product _product(Map<String, dynamic> j) => Product(
+        j['id'].toString(),
+        j['name'] as String,
+        (j['description'] ?? '') as String,
+        _int(j['price']),
+        ProductCategory.values.firstWhere((c) => c.name == j['category'], orElse: () => ProductCategory.makanan),
+        (j['image'] ?? '') as String, // URL foto di server, atau jalur asset bawaan aplikasi
+        vehicles: {
+          for (final v in (j['vehicles'] as List? ?? const []))
+            VehicleType.values.firstWhere((t) => t.name == v, orElse: () => VehicleType.mobil),
+        },
+        stock: _int(j['stock'] ?? 0),
+        detailsText: j['details'] as String?,
+        active: (j['active'] ?? true) as bool,
+      );
+
+  @override
+  Future<ServerCatalog> catalog() async {
+    final j = _obj(await _call('GET', '/catalog'));
+    return ServerCatalog(products: _maps(j['products']).map(_product).toList());
+  }
+
+  @override
+  Future<Product> saveProduct(Product p, {PickedImage? image}) async {
+    final fields = <String, String>{
+      'name': p.name,
+      'description': p.desc,
+      'details': p.detailsText ?? '',
+      'price': '${p.price}',
+      'category': p.category.name,
+      'stock': '${p.stock}',
+      'vehicles': p.vehicles.map((v) => v.name).join(','),
+    };
+    final j = await _multipart(p.id.isEmpty ? '/admin/products' : '/admin/products/${p.id}', fields, image);
+    return _product(_obj(j));
+  }
+
+  @override
+  Future<String> deleteProduct(String id) async {
+    final j = _obj(await _call('DELETE', '/admin/products/$id'));
+    return (j['message'] ?? 'Produk dihapus.') as String;
+  }
 
   @override
   Future<AdminOverview> adminOverview() async {

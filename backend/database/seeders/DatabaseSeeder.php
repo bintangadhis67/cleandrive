@@ -12,6 +12,7 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             WashPackageSeeder::class,
             ProductSeeder::class,
+            ProductImageSeeder::class,
             VoucherSeeder::class,
             MembershipPlanSeeder::class,
         ]);

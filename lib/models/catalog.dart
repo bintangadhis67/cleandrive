@@ -105,9 +105,14 @@ const kProductDetails = <String, String>{
 
 extension ProductInfo on Product {
   /// Deskripsi lengkap untuk halaman detail produk.
-  String get details => kProductDetails[id] ?? desc;
+  String get details => detailsText ?? kProductDetails[id] ?? desc;
 }
 
-Product? productById(String id) => products.where((p) => p.id == id).firstOrNull;
+/// Daftar produk yang sedang dipakai: dari server bila sudah dimuat, selain itu daftar bawaan di atas.
+List<Product>? _liveProducts;
+List<Product> get catalogProducts => _liveProducts ?? products;
+void setLiveProducts(List<Product> list) => _liveProducts = list;
 
-Iterable<Product> productsIn(ProductCategory c) => products.where((p) => p.category == c);
+Product? productById(String id) => catalogProducts.where((p) => p.id == id).firstOrNull;
+
+Iterable<Product> productsIn(ProductCategory c) => catalogProducts.where((p) => p.active && p.category == c);

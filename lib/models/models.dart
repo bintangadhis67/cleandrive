@@ -161,8 +161,14 @@ class Product {
   /// Khusus oli: jenis kendaraan yang cocok. Kosong = cocok untuk semua.
   final Set<VehicleType> vehicles;
 
+  /// Keterangan lengkap dari server. Kosong = pakai kProductDetails atau deskripsi singkat.
+  final String? detailsText;
+
+  /// false = sudah dinonaktifkan admin: tidak tampil di Toko, tetapi pesanan lama tetap terbaca.
+  final bool active;
+
   const Product(this.id, this.name, this.desc, this.price, this.category, this.image,
-      {this.vehicles = const {}, this.stock = 20});
+      {this.vehicles = const {}, this.stock = 20, this.detailsText, this.active = true});
 
   bool fits(VehicleType v) => vehicles.isEmpty || vehicles.contains(v);
 

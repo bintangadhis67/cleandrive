@@ -1,11 +1,13 @@
 <?php
 
+use App\Http\Controllers\Api\AdminCatalogController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CatalogController;
 use App\Http\Controllers\Api\GarageController;
 use App\Http\Controllers\Api\LoyaltyController;
+use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\MembershipController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PaymentController;
@@ -29,6 +31,8 @@ Route::middleware(ForceJsonResponse::class)->group(function () {
     Route::get('login', fn () => response()->json(['message' => 'Unauthenticated.'], 401))->name('login');
 
     // ---- tanpa login ----
+    // Foto produk (terbuka untuk umum, nama file dibatasi oleh pola di bawah).
+    Route::get('media/{path}', [MediaController::class, 'show'])->where('path', 'products/[A-Za-z0-9_-]+\.(?:png|jpg|jpeg|webp)');
     Route::post('auth/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
     Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
 
@@ -40,6 +44,7 @@ Route::middleware(ForceJsonResponse::class)->group(function () {
         Route::put('me/password', [AuthController::class, 'changePassword']);
 
         Route::get('products', [CatalogController::class, 'products']);
+        Route::get('catalog', [CatalogController::class, 'catalog']);
         Route::get('stocks', [CatalogController::class, 'stocks']);
         Route::get('ratings/summary', [CatalogController::class, 'ratingSummary']);
 
@@ -95,6 +100,11 @@ Route::middleware(ForceJsonResponse::class)->group(function () {
             Route::get('summary', [AdminController::class, 'summary']);
             Route::get('reviews', [AdminController::class, 'reviews']);
             Route::get('overview', [AdminController::class, 'overview']);
+
+            // Katalog: foto produk dikirim sebagai file (multipart). Ubah memakai POST karena PHP tidak membaca file dari PUT.
+            Route::post('products', [AdminCatalogController::class, 'store']);
+            Route::post('products/{id}', [AdminCatalogController::class, 'update'])->where('id', '[A-Za-z0-9]+');
+            Route::delete('products/{id}', [AdminCatalogController::class, 'destroy'])->where('id', '[A-Za-z0-9]+');
         });
     });
 });

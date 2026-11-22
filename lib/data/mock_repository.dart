@@ -1,6 +1,7 @@
 import 'package:intl/intl.dart';
 
 import '../models/catalog.dart';
+import '../models/catalog_remote.dart';
 import '../models/loyalty_models.dart';
 import '../models/membership_models.dart';
 import '../models/models.dart';
@@ -1237,6 +1238,17 @@ class MockRepository implements Repository {
       rating: _rating(),
     );
   }
+
+  @override
+  Future<ServerCatalog> catalog() async => ServerCatalog(products: products);
+
+  @override
+  Future<Product> saveProduct(Product p, {PickedImage? image}) async =>
+      throw ApiException('Mode demo (tanpa server) tidak menyimpan perubahan katalog.');
+
+  @override
+  Future<String> deleteProduct(String id) async =>
+      throw ApiException('Mode demo (tanpa server) tidak menyimpan perubahan katalog.');
 
   @override
   Future<AdminOverview> adminOverview() async {

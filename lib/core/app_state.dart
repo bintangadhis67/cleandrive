@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../data/repository.dart';
+import '../models/catalog.dart' show setLiveProducts;
 import '../models/loyalty_models.dart';
 import '../models/membership_models.dart';
 import '../models/models.dart';
@@ -68,7 +69,21 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  DateTime? _catalogAt;
+
+  /// Memuat katalog produk dari server (disimpan sekitar 1 menit di memori). Bila gagal, katalog yang ada tetap dipakai.
+  Future<void> loadCatalog({bool force = false}) async {
+    final at = _catalogAt;
+    if (!force && at != null && DateTime.now().difference(at) < const Duration(minutes: 1)) return;
+    try {
+      final c = await repo.catalog();
+      setLiveProducts(c.products);
+      _catalogAt = DateTime.now();
+    } catch (_) {}
+  }
+
   Future<void> refreshAll() async {
+    await loadCatalog();
     final r = await Future.wait([repo.bookings(), repo.ratingSummary(), repo.stocks()]);
     bookings = r[0] as List<Booking>;
     rating = r[1] as RatingSummary;

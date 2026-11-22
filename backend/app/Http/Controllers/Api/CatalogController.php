@@ -9,15 +9,22 @@ use Illuminate\Http\JsonResponse;
 
 class CatalogController extends ApiController
 {
-    /** Daftar produk toko (untuk admin katalog dan sinkronisasi harga). */
+    /**
+     * Semua produk, termasuk yang sudah dinonaktifkan admin (flag "active"), supaya pesanan lama
+     * yang memuat produk itu tetap terbaca di aplikasi. Toko hanya menampilkan yang aktif.
+     */
     public function products(): JsonResponse
     {
-        $items = Product::where('is_active', true)->orderBy('sort')->get();
-
-        return response()->json($items->map(fn (Product $p) => Presenter::product($p))->values());
+        return response()->json($this->allProducts());
     }
 
-    /** Repository.stocks(): {"mk1": 3, "mn1": 25, ...} */
+    /** Katalog untuk aplikasi: {"products": [...]}. */
+    public function catalog(): JsonResponse
+    {
+        return response()->json(['products' => $this->allProducts()]);
+    }
+
+    /** Repository.stocks(): {"mk1": 3, "mn1": 25, ...} (hanya produk aktif) */
     public function stocks(): JsonResponse
     {
         $stocks = Product::where('is_active', true)->pluck('stock', 'id')->map(fn ($v) => (int) $v);
@@ -32,5 +39,10 @@ class CatalogController extends ApiController
             'avg' => round((float) Review::avg('rating'), 2),
             'count' => Review::count(),
         ]);
+    }
+
+    private function allProducts()
+    {
+        return Product::orderBy('sort')->get()->map(fn (Product $p) => Presenter::product($p))->values();
     }
 }

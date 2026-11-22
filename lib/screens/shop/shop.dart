@@ -17,7 +17,15 @@ class ProductImage extends StatelessWidget {
   const ProductImage(this.p, {super.key, this.height, this.cacheWidth = 400});
 
   @override
-  Widget build(BuildContext context) => Image.asset(
+  Widget build(BuildContext context) => p.image.startsWith('http')
+      ? Image.network(
+          p.image,
+          height: height,
+          fit: BoxFit.contain,
+          cacheWidth: cacheWidth,
+          errorBuilder: (_, __, ___) => Icon(p.category.icon, size: (height ?? 100) * .4, color: kMuted),
+        )
+      : Image.asset(
         p.image,
         height: height,
         fit: BoxFit.contain,

@@ -12,6 +12,7 @@ use App\Models\Payment;
 use App\Models\Product;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\Services\ProductImageService;
 use Carbon\CarbonInterface;
 
 /**
@@ -52,9 +53,10 @@ class Presenter
             'details' => $p->details,
             'price' => (int) $p->price,
             'category' => $p->category,
-            'image' => $p->image,
+            'image' => ProductImageService::url($p->image),
             'stock' => (int) $p->stock,
             'vehicles' => $p->vehicles ?? [],
+            'active' => (bool) $p->is_active,
         ];
     }
 

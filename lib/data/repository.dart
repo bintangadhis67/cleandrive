@@ -1,3 +1,4 @@
+import '../models/catalog_remote.dart';
 import '../models/loyalty_models.dart';
 import '../models/membership_models.dart';
 import '../models/models.dart';
@@ -214,4 +215,15 @@ abstract class Repository {
 
   /// Ringkasan lintas pelanggan untuk panel admin: pelanggan, Coins, membership, dan aktivitas terbaru.
   Future<AdminOverview> adminOverview();
+
+  // katalog (server)
+
+  /// Katalog produk terbaru dari server. Termasuk produk yang sudah dinonaktifkan, supaya pesanan lama tetap terbaca.
+  Future<ServerCatalog> catalog();
+
+  /// Admin: tambah produk (id kosong) atau ubah produk. [image] = foto baru; kosong = foto lama dipertahankan.
+  Future<Product> saveProduct(Product p, {PickedImage? image});
+
+  /// Admin: hapus produk. Yang sudah pernah dipesan hanya dinonaktifkan. Hasil: pesan untuk ditampilkan.
+  Future<String> deleteProduct(String id);
 }
