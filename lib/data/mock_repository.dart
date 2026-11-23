@@ -1247,6 +1247,10 @@ class MockRepository implements Repository {
       throw ApiException('Mode demo (tanpa server) tidak menyimpan perubahan katalog.');
 
   @override
+  Future<void> savePackage(String name, {required String desc, required int minutes, required int priceMotor, required int priceMobil}) async =>
+      throw ApiException('Mode demo (tanpa server) tidak menyimpan perubahan katalog.');
+
+  @override
   Future<String> deleteProduct(String id) async =>
       throw ApiException('Mode demo (tanpa server) tidak menyimpan perubahan katalog.');
 

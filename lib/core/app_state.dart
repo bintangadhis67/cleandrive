@@ -78,6 +78,7 @@ class AppState extends ChangeNotifier {
     try {
       final c = await repo.catalog();
       setLiveProducts(c.products);
+      WashPackage.applyLive(c.packages);
       _catalogAt = DateTime.now();
     } catch (_) {}
   }

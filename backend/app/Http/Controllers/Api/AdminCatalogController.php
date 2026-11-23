@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Exceptions\ApiException;
 use App\Models\BookingItem;
 use App\Models\Product;
+use App\Models\WashPackage;
 use App\Services\ProductImageService;
 use App\Support\Presenter;
 use Illuminate\Http\JsonResponse;
@@ -99,6 +100,48 @@ class AdminCatalogController extends ApiController
         $p->delete(); // baris gambar di product_images ikut terhapus (foreign key cascade)
 
         return response()->json(['message' => "{$name} dihapus.", 'deactivated' => false]);
+    }
+
+    /**
+     * Ubah deskripsi, durasi, dan harga satu paket yang sudah ada (Express, Reguler, Detailing, Ganti Oli).
+     * Harga baru berlaku untuk pesanan berikutnya; pesanan yang sudah dibuat tidak berubah.
+     */
+    public function updatePackage(Request $request, string $name): JsonResponse
+    {
+        $p = WashPackage::where('name', $name)->first() ?? throw new ApiException('Paket tidak ditemukan.', 404);
+        if ($p->kind === 'shop') {
+            throw new ApiException('Paket ini tidak dapat diubah.');
+        }
+
+        $desc = trim((string) $request->input('desc'));
+        $minutes = $request->input('minutes');
+        $motor = $request->input('price_motor');
+        $mobil = $request->input('price_mobil');
+
+        if ($desc === '') {
+            throw new ApiException('Deskripsi paket wajib diisi.');
+        }
+        if (mb_strlen($desc) > 255) {
+            throw new ApiException('Deskripsi paket maksimal 255 karakter.');
+        }
+        if (! is_numeric($minutes) || (int) $minutes < 5 || (int) $minutes > 600) {
+            throw new ApiException('Durasi harus antara 5 dan 600 menit.');
+        }
+        foreach ([$motor, $mobil] as $price) {
+            if (! is_numeric($price) || (int) $price < 1000 || (int) $price > 100000000) {
+                throw new ApiException('Harga harus berupa angka minimal Rp 1.000.');
+            }
+        }
+
+        // Harga motor dan mobil disimpan eksplisit; base_price mengikuti harga motor (faktor motor = 1).
+        $p->update([
+            'description' => $desc,
+            'minutes' => (int) $minutes,
+            'base_price' => (int) $motor,
+            'prices' => ['motor' => (int) $motor, 'mobil' => (int) $mobil],
+        ]);
+
+        return response()->json(Presenter::package($p->fresh()));
     }
 
     // ---------------------------------------------------------------- helper

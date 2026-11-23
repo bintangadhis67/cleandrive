@@ -9,8 +9,9 @@ class PickedImage {
   const PickedImage(this.bytes, this.name);
 }
 
-/// Katalog dari server. Saat ini berisi daftar produk (Toko dan oli).
+/// Katalog dari server: daftar produk (Toko dan oli) serta harga, durasi, dan deskripsi paket layanan.
 class ServerCatalog {
   final List<Product> products;
-  const ServerCatalog({required this.products});
+  final List<LivePackage> packages;
+  const ServerCatalog({required this.products, this.packages = const []});
 }

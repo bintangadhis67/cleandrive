@@ -16,15 +16,38 @@ VehicleType vehicleFrom(String s) =>
 /// Jenis pesanan: cuci, ganti oli, atau belanja di toko.
 enum ServiceKind { wash, oil, shop }
 
-class WashPackage {
+/// Harga, durasi, dan deskripsi paket yang dikirim server.
+class LivePackage {
   final String name, desc;
   final int basePrice, minutes;
+  final Map<VehicleType, int> prices;
+  const LivePackage({required this.name, required this.desc, required this.basePrice, required this.minutes, required this.prices});
+}
+
+class WashPackage {
+  final String name;
+  final String _desc;
+  final int _basePrice, _minutes;
   final ServiceKind kind;
 
   /// Harga khusus per jenis kendaraan. Bila kosong, harga = basePrice x faktor kendaraan.
-  final Map<VehicleType, int> prices;
-  const WashPackage(this.name, this.desc, this.basePrice, this.minutes,
-      {this.kind = ServiceKind.wash, this.prices = const {}});
+  final Map<VehicleType, int> _prices;
+  const WashPackage(this.name, this._desc, this._basePrice, this._minutes,
+      {this.kind = ServiceKind.wash, Map<VehicleType, int> prices = const {}})
+      : _prices = prices;
+
+  /// Nilai terbaru dari server (diisi saat katalog dimuat). Kosong = nilai bawaan di kode.
+  static final Map<String, LivePackage> _live = {};
+  static void applyLive(Iterable<LivePackage> list) {
+    _live
+      ..clear()
+      ..addEntries(list.map((e) => MapEntry(e.name, e)));
+  }
+
+  String get desc => _live[name]?.desc ?? _desc;
+  int get basePrice => _live[name]?.basePrice ?? _basePrice;
+  int get minutes => _live[name]?.minutes ?? _minutes;
+  Map<VehicleType, int> get prices => _live[name]?.prices ?? _prices;
 
   bool get isOil => kind == ServiceKind.oil;
   bool get isShop => kind == ServiceKind.shop;

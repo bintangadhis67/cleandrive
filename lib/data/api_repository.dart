@@ -15,7 +15,7 @@ import 'repository.dart';
 /// Repository yang memanggil backend Laravel (folder backend/).
 ///
 /// Alamat server:
-///  - Chrome / desktop : http://localhost:8000/api
+///  - Chrome / desktop : http://127.0.0.1:8000/api (127.0.0.1 lebih cepat daripada localhost di Windows)
 ///  - Emulator Android : http://10.0.2.2:8000/api
 ///  - HP fisik         : jalankan dengan --dart-define=API_BASE_URL=http://IP-LAPTOP:8000/api
 class ApiRepository implements Repository {
@@ -480,7 +480,22 @@ class ApiRepository implements Repository {
   @override
   Future<ServerCatalog> catalog() async {
     final j = _obj(await _call('GET', '/catalog'));
-    return ServerCatalog(products: _maps(j['products']).map(_product).toList());
+    return ServerCatalog(
+      products: _maps(j['products']).map(_product).toList(),
+      packages: [
+        for (final p in _maps(j['packages']))
+          LivePackage(
+            name: p['name'] as String,
+            desc: (p['desc'] ?? '') as String,
+            basePrice: _int(_obj(p['prices'])['motor']),
+            minutes: _int(p['minutes']),
+            prices: {
+              VehicleType.motor: _int(_obj(p['prices'])['motor']),
+              VehicleType.mobil: _int(_obj(p['prices'])['mobil']),
+            },
+          ),
+      ],
+    );
   }
 
   @override
@@ -502,6 +517,22 @@ class ApiRepository implements Repository {
   Future<String> deleteProduct(String id) async {
     final j = _obj(await _call('DELETE', '/admin/products/$id'));
     return (j['message'] ?? 'Produk dihapus.') as String;
+  }
+
+  @override
+  Future<void> savePackage(
+    String name, {
+    required String desc,
+    required int minutes,
+    required int priceMotor,
+    required int priceMobil,
+  }) async {
+    await _call('PUT', '/admin/packages/${Uri.encodeComponent(name)}', body: {
+      'desc': desc,
+      'minutes': minutes,
+      'price_motor': priceMotor,
+      'price_mobil': priceMobil,
+    });
   }
 
   @override

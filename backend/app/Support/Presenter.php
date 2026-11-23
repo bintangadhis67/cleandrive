@@ -11,6 +11,7 @@ use App\Models\MembershipTransaction;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\User;
+use App\Models\WashPackage;
 use App\Models\Vehicle;
 use App\Services\ProductImageService;
 use Carbon\CarbonInterface;
@@ -210,6 +211,18 @@ class Presenter
             'qr_string' => $o->qr_string,
             'balance' => $o->balance === null ? null : (int) $o->balance,
             'sandbox' => (bool) $o->sandbox,
+        ];
+    }
+
+    /** Harga efektif per kendaraan, supaya aplikasi tidak perlu menghitung ulang. Dibaca LivePackage di Flutter. */
+    public static function package(WashPackage $p): array
+    {
+        return [
+            'name' => $p->name,
+            'desc' => $p->description,
+            'kind' => $p->kind,
+            'minutes' => (int) $p->minutes,
+            'prices' => ['motor' => $p->priceFor('motor'), 'mobil' => $p->priceFor('mobil')],
         ];
     }
 }

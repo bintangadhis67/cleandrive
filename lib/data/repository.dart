@@ -226,4 +226,7 @@ abstract class Repository {
 
   /// Admin: hapus produk. Yang sudah pernah dipesan hanya dinonaktifkan. Hasil: pesan untuk ditampilkan.
   Future<String> deleteProduct(String id);
+
+  /// Admin: ubah deskripsi, durasi, dan harga satu paket layanan (cuci atau ganti oli) yang sudah ada.
+  Future<void> savePackage(String name, {required String desc, required int minutes, required int priceMotor, required int priceMobil});
 }

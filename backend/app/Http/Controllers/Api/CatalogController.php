@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\Product;
 use App\Models\Review;
+use App\Models\WashPackage;
 use App\Support\Presenter;
 use Illuminate\Http\JsonResponse;
 
@@ -18,10 +19,16 @@ class CatalogController extends ApiController
         return response()->json($this->allProducts());
     }
 
-    /** Katalog untuk aplikasi: {"products": [...]}. */
+    /** Katalog untuk aplikasi: {"products": [...], "packages": [...]}. */
     public function catalog(): JsonResponse
     {
-        return response()->json(['products' => $this->allProducts()]);
+        return response()->json(['products' => $this->allProducts(), 'packages' => $this->allPackages()]);
+    }
+
+    /** Paket layanan (Express, Reguler, Detailing, Ganti Oli) dengan harga efektif motor dan mobil. */
+    public function packages(): JsonResponse
+    {
+        return response()->json($this->allPackages());
     }
 
     /** Repository.stocks(): {"mk1": 3, "mn1": 25, ...} (hanya produk aktif) */
@@ -39,6 +46,12 @@ class CatalogController extends ApiController
             'avg' => round((float) Review::avg('rating'), 2),
             'count' => Review::count(),
         ]);
+    }
+
+    private function allPackages()
+    {
+        return WashPackage::where('is_active', true)->where('kind', '!=', 'shop')->orderBy('id')->get()
+            ->map(fn (WashPackage $p) => Presenter::package($p))->values();
     }
 
     private function allProducts()
