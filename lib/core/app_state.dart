@@ -90,12 +90,20 @@ class AppState extends ChangeNotifier {
     stock = r[2] as Map<String, int>;
     _clampCart();
     if (!isAdmin) {
-      vouchers = await repo.vouchers();
-      quota = await repo.voucherQuota();
-      loyalty = await repo.loyalty();
-      membership = await repo.membership();
-      garage = await repo.garage();
-      await _fetchNotifications();
+      // Semua data pelanggan diminta sekaligus (bukan satu per satu) supaya layar awal cepat terbuka.
+      final m = await Future.wait<Object?>([
+        repo.vouchers(),
+        repo.voucherQuota(),
+        repo.loyalty(),
+        repo.membership(),
+        repo.garage(),
+        _fetchNotifications(),
+      ]);
+      vouchers = m[0] as List<Voucher>;
+      quota = m[1] as VoucherQuota;
+      loyalty = m[2] as LoyaltyInfo;
+      membership = m[3] as MembershipInfo;
+      garage = m[4] as List<GarageVehicle>;
     }
     notifyListeners();
   }

@@ -99,7 +99,7 @@ class AdminData extends ChangeNotifier {
   void attach() {
     if (_users++ == 0) {
       load();
-      _timer = Timer.periodic(const Duration(seconds: 8), (_) => load());
+      _timer = Timer.periodic(const Duration(seconds: 20), (_) => load());
     }
   }
 
@@ -115,10 +115,12 @@ class AdminData extends ChangeNotifier {
     if (_busy) return;
     _busy = true;
     try {
-      await app.refreshAll();
-      summary = await app.summary();
-      overview = await app.repo.adminOverview();
-      reviews = await app.allReviews();
+      await Future.wait([
+        app.refreshAll(),
+        app.summary().then((v) => summary = v),
+        app.repo.adminOverview().then((v) => overview = v),
+        app.allReviews().then((v) => reviews = v),
+      ]);
       error = null;
     } on ApiException catch (e) {
       error = e.message;

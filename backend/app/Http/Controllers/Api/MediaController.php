@@ -3,19 +3,31 @@
 namespace App\Http\Controllers\Api;
 
 use App\Exceptions\ApiException;
-use Illuminate\Support\Facades\Storage;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 
-/** Menayangkan foto produk. Terbuka untuk umum karena widget gambar tidak mengirim token login. */
+/** Menayangkan foto produk dari database. Terbuka untuk umum karena widget gambar tidak mengirim token login. */
 class MediaController extends ApiController
 {
-    public function show(string $path): BinaryFileResponse
+    public function product(Request $request, string $id): Response
     {
-        $disk = Storage::disk('public');
-        if (! $disk->exists($path)) {
+        // Metadata dibaca dulu tanpa isi gambar, supaya permintaan ulang cukup dijawab 304 tanpa membaca BLOB.
+        $meta = DB::table('product_images')->select('hash', 'mime')->where('product_id', $id)->first();
+        if (! $meta) {
             throw new ApiException('Gambar tidak ditemukan.', 404);
         }
 
-        return response()->file($disk->path($path), ['Cache-Control' => 'public, max-age=604800']);
+        $etag = '"'.$meta->hash.'"';
+        // Alamat gambar memuat penanda versi (?v=...), jadi aman di-cache lama; foto baru = alamat baru.
+        $headers = ['Content-Type' => $meta->mime, 'ETag' => $etag, 'Cache-Control' => 'public, max-age=31536000, immutable'];
+
+        if ($request->header('If-None-Match') === $etag) {
+            return response('', 304, $headers);
+        }
+
+        $data = DB::table('product_images')->where('product_id', $id)->value('data');
+
+        return response($data, 200, $headers);
     }
 }

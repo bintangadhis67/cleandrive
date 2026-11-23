@@ -27,24 +27,26 @@ class AdminCatalogController extends ApiController
 
         $product = DB::transaction(function () use ($request, $f) {
             $id = $this->nextId($f['category']);
-            $image = '';
-            if ($file = $request->file('image')) {
-                $image = ProductImageService::store($file, $id);
-            }
 
-            return Product::create([
+            // Baris produk dibuat dulu karena tabel product_images mereferensikan products.id.
+            $p = Product::create([
                 'id' => $id,
                 'name' => $f['name'],
                 'description' => $f['description'],
                 'details' => $f['details'] !== '' ? $f['details'] : null,
                 'price' => $f['price'],
                 'category' => $f['category'],
-                'image' => $image,
+                'image' => '',
                 'stock' => $f['stock'],
                 'vehicles' => $f['vehicles'] ?: null,
                 'sort' => (int) Product::max('sort') + 1,
                 'is_active' => true,
             ]);
+            if ($file = $request->file('image')) {
+                $p->update(['image' => ProductImageService::saveUpload($id, $file)]);
+            }
+
+            return $p;
         });
 
         return response()->json(Presenter::product($product->fresh()), 201);
@@ -67,12 +69,10 @@ class AdminCatalogController extends ApiController
         ];
         if ($file = $request->file('image')) {
             $old = $p->image;
-            $data['image'] = ProductImageService::store($file, $p->id);
-            $p->update($data);
-            ProductImageService::delete($old);
-        } else {
-            $p->update($data);
+            $data['image'] = ProductImageService::saveUpload($p->id, $file); // menggantikan gambar lama di database
+            ProductImageService::deleteLegacyFile($old);
         }
+        $p->update($data);
 
         return response()->json(Presenter::product($p->fresh()));
     }
@@ -94,9 +94,9 @@ class AdminCatalogController extends ApiController
             ]);
         }
 
-        ProductImageService::delete($p->image);
+        ProductImageService::deleteLegacyFile($p->image);
         $name = $p->name;
-        $p->delete();
+        $p->delete(); // baris gambar di product_images ikut terhapus (foreign key cascade)
 
         return response()->json(['message' => "{$name} dihapus.", 'deactivated' => false]);
     }

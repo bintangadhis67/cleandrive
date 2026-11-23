@@ -31,8 +31,8 @@ Route::middleware(ForceJsonResponse::class)->group(function () {
     Route::get('login', fn () => response()->json(['message' => 'Unauthenticated.'], 401))->name('login');
 
     // ---- tanpa login ----
-    // Foto produk (terbuka untuk umum, nama file dibatasi oleh pola di bawah).
-    Route::get('media/{path}', [MediaController::class, 'show'])->where('path', 'products/[A-Za-z0-9_-]+\.(?:png|jpg|jpeg|webp)');
+    // Foto produk dari database (terbuka untuk umum: widget gambar tidak mengirim token login).
+    Route::get('media/products/{id}', [MediaController::class, 'product'])->where('id', '[A-Za-z0-9]+');
     Route::post('auth/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
     Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
 
