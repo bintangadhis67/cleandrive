@@ -29,18 +29,18 @@ Yang **belum pernah diuji** menurut catatan proyek diberi tanda (!).
 | 19 | Batalkan membership | Refund penuh tercatat | [ ] | |
 | 20 | Cuci gratis (maks 1x per minggu) | Total Rp 0; kali kedua minggu itu ditolak | [ ] | |
 | 21 | Toko: keranjang, stok habis, checkout | Stok dicek ulang saat bayar | [ ] | |
-| 22 | Notifikasi dan pengingat jadwal | Muncul, bisa dibaca dan dihapus | [ ] | |
+| 22 | Notifikasi dan pengingat jadwal | Muncul, bisa dibaca; hapus dengan menggeser kartu ke kiri (klik, tahan, seret di Chrome) | [ ] | |
 
 ## B. Admin
 | # | Skenario | Hasil yang diharapkan | Lolos | Temuan |
 |---|----------|-----------------------|:----:|--------|
-| 1 | Verifikasi tiket (ketik kode / pindai) | Status naik ke Proses | [ ] | |
-| 2 | Naikkan status sampai Selesai | Pelanggan melihat perubahan (maks ~20 detik) | [ ] | |
+| 1 | Verifikasi tiket (ketik kode / pindai) pada pesanan yang sudah dibayar | Lencana jadi "Tiket terverifikasi" dan pelanggan menerima notifikasi. **Status antrean tidak berubah** (itu tugas tombol naikkan status). Pesanan belum dibayar atau dibatalkan ditolak | [ ] | |
+| 2 | Naikkan status sampai Selesai (verifikasi tidak wajib: menaikkan status otomatis menandai terverifikasi). Coba pada pesanan belum dibayar | Pelanggan melihat perubahan (maks ~20 detik). Pesanan belum dibayar ditolak: "Pesanan belum dibayar." | [ ] | |
 | 3 | Dashboard, Pesanan, Pelanggan, Ulasan | Angka cocok dengan data | [ ] | |
 | 4 | Coins dan Membership: tab statistik | Tampil tanpa error | [ ] | |
 | 5 | **Baru (C2)** Pengaturan Reward: ubah nilai 1 Coin, simpan | Pelanggan melihat nilai baru setelah muat ulang katalog (<= 1 menit) | [ ] | |
 | 6 | **Baru (C2)** Pengaturan Reward: isi tidak valid (batas tertinggi <= menengah) | Pesan kesalahan dari dialog / server | [ ] | |
-| 7 | **Baru (C2)** Ubah tingkatan membership (harga, diskon, benefit) | Tampil di halaman Membership pelanggan; member lama tidak berubah | [ ] | |
+| 7 | **Baru (C2)** Ubah tingkatan membership (harga, diskon, benefit) | Isi kolom angka DAN teks benefit dengan nilai sama. Di akun member, rincian harga pesanan berikutnya menampilkan persen baru (member lama ikut, karena diskon dibaca langsung dari tingkatan). Harga dan jatah cuci gratis hanya berlaku untuk pembelian/perpanjangan berikutnya | [ ] | |
 | 8 | Katalog: tambah, ubah, hapus produk (foto, stok), ubah harga paket | Tersimpan dan tampil di pelanggan | [ ] | |
 
 ## C. Android (bila dipakai)

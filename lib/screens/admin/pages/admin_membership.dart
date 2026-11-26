@@ -401,7 +401,7 @@ class _PlanDialogState extends State<_PlanDialog> {
               TextField(controller: _benefits, enabled: !_saving, minLines: 4, maxLines: 8, decoration: const InputDecoration(border: OutlineInputBorder())),
               const SizedBox(height: 12),
               const Text(
-                'Teks benefit tidak dibuat otomatis dari pilihan di atas, jadi samakan isinya. Membership yang sudah aktif tidak berubah; perubahan berlaku untuk pembelian dan perpanjangan berikutnya.',
+                'Daftar benefit dan promo hanya tulisan. Yang dipakai saat transaksi adalah kolom angka (harga, diskon, jatah cuci gratis), jadi samakan keduanya. Diskon layanan langsung berlaku di pesanan berikutnya, termasuk untuk member yang sudah aktif. Harga dan jatah cuci gratis berlaku untuk pembelian dan perpanjangan berikutnya.',
                 style: TextStyle(fontSize: 12, color: kMuted),
               ),
               if (_error != null) ...[

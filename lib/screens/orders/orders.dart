@@ -477,7 +477,8 @@ class _DetailScreenState extends State<DetailScreen> {
 
   DateTime _stageTime(Booking b, int i) {
     const f = [0.0, .3, .8, 1.0];
-    final total = b.estFinish.difference(b.slot).inMinutes;
+    // Bila pesanan selesai sebelum jam slot, jangan hitung mundur (jam tahap tidak boleh menurun).
+    final total = b.estFinish.isAfter(b.slot) ? b.estFinish.difference(b.slot).inMinutes : 0;
     return b.slot.add(Duration(minutes: (total * f[i]).round()));
   }
 
