@@ -26,3 +26,4 @@ android/app/release
 .DS_Store
 Thumbs.db
 *.zip*.bak
+*.bak
