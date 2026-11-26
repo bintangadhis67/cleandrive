@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 
+import '../../../core/app_state.dart';
 import '../../../core/theme.dart';
 import '../../../data/repository.dart';
 import '../../../models/membership_models.dart';
@@ -28,6 +30,15 @@ class _AdminMembershipPageState extends State<AdminMembershipPage> {
     -1: 'Belum berlangganan',
     for (final t in MembershipTier.values) t.rank: t.label,
   };
+
+  Future<void> _editPlan(MembershipPlan p) async {
+    final saved = await showDialog<bool>(context: context, barrierDismissible: false, builder: (_) => _PlanDialog(p));
+    if (!mounted) return;
+    if (saved == true) {
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Tingkatan ${p.name} disimpan.')));
+    }
+  }
 
   void _detail(AdminCustomer c) {
     final m = c.membership;
@@ -135,6 +146,8 @@ class _AdminMembershipPageState extends State<AdminMembershipPage> {
                       Expanded(child: Text(b, style: const TextStyle(fontSize: 12.5))),
                     ]),
                   ),
+                const SizedBox(height: 10),
+                SmallOutlineButton('Ubah tingkatan', () => _editPlan(p), chevron: false),
               ]),
             ),
         ]),
@@ -152,8 +165,6 @@ class _AdminMembershipPageState extends State<AdminMembershipPage> {
             ),
           ]),
         ),
-        const SizedBox(height: 14),
-        Align(alignment: Alignment.centerLeft, child: RedAction('Ubah benefit tingkatan', () => showNotConnected(context, 'Pengaturan benefit'), icon: Icons.tune_rounded)),
       ]);
 
   Widget _history(AdminOverview ov) => AdminCard(
@@ -214,4 +225,195 @@ class _AdminMembershipPageState extends State<AdminMembershipPage> {
           content,
         ]);
       });
+}
+
+// ---------------------------------------------------------------------------
+// Dialog ubah satu tingkatan membership. Validasi sama dengan server (AdminSettingsController::savePlan).
+// ---------------------------------------------------------------------------
+class _PlanDialog extends StatefulWidget {
+  final MembershipPlan plan;
+  const _PlanDialog(this.plan);
+
+  @override
+  State<_PlanDialog> createState() => _PlanDialogState();
+}
+
+class _PlanDialogState extends State<_PlanDialog> {
+  static const _washNames = ['Express', 'Reguler', 'Detailing'];
+
+  late final TextEditingController _price = TextEditingController(text: '${widget.plan.price}');
+  late final TextEditingController _discount = TextEditingController(text: '${widget.plan.discountPct}');
+  late final TextEditingController _priority = TextEditingController(text: widget.plan.priority);
+  late final TextEditingController _promo = TextEditingController(text: widget.plan.promo);
+  late final TextEditingController _quota = TextEditingController(text: '${widget.plan.freeWashQuota}');
+  late final TextEditingController _benefits = TextEditingController(text: widget.plan.benefits.join('\n'));
+  late String _free = widget.plan.freePackage;
+  late Set<VehicleType> _veh = {...widget.plan.freeVehicles};
+  late bool _snack = widget.plan.snack;
+  late bool _vip = widget.plan.vip;
+  late bool _massage = widget.plan.massage;
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _price.dispose();
+    _discount.dispose();
+    _priority.dispose();
+    _promo.dispose();
+    _quota.dispose();
+    _benefits.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final price = int.tryParse(_price.text.trim());
+    final discount = int.tryParse(_discount.text.trim());
+    final quota = int.tryParse(_quota.text.trim());
+    final priority = _priority.text.trim();
+    final promo = _promo.text.trim();
+    final benefits = _benefits.text.split('\n').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    String? err;
+    if (price == null || price < 1000 || price > 100000000) {
+      err = 'Harga harus berupa angka minimal Rp 1.000.';
+    } else if (discount == null || discount < 0 || discount > 100) {
+      err = 'Diskon harus berupa angka 0 sampai 100.';
+    } else if (priority.isEmpty || priority.length > 60) {
+      err = 'Prioritas booking wajib diisi (maksimal 60 karakter).';
+    } else if (promo.length > 120) {
+      err = 'Promo maksimal 120 karakter.';
+    } else if (_free.isNotEmpty && (quota == null || quota < 1 || quota > 100)) {
+      err = 'Jatah cuci gratis harus berupa angka 1 sampai 100.';
+    } else if (_free.isNotEmpty && _veh.isEmpty) {
+      err = 'Pilih minimal satu jenis kendaraan untuk cuci gratis.';
+    } else if (benefits.isEmpty || benefits.length > 12) {
+      err = 'Benefit minimal 1 baris dan maksimal 12 baris.';
+    } else if (benefits.any((b) => b.length > 120)) {
+      err = 'Setiap baris benefit maksimal 120 karakter.';
+    }
+    if (err != null) {
+      setState(() => _error = err);
+      return;
+    }
+    final plan = MembershipPlan(
+      tier: widget.plan.tier,
+      price: price!,
+      durationDays: widget.plan.durationDays,
+      discountPct: discount!,
+      priority: priority,
+      benefits: benefits,
+      promo: promo,
+      popular: widget.plan.popular,
+      freePackage: _free,
+      freeWashQuota: _free.isEmpty ? 0 : quota!,
+      freeVehicles: _free.isEmpty ? <VehicleType>{} : _veh,
+      snack: _snack,
+      vip: _vip,
+      massage: _massage,
+    );
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await app.repo.savePlan(plan);
+      await app.loadCatalog(force: true);
+      await app.refreshAll();
+      if (mounted) Navigator.pop(context, true);
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = e.message;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = 'Gagal menyimpan. Periksa koneksi ke server lalu coba lagi.';
+        });
+      }
+    }
+  }
+
+  Widget _num(TextEditingController c, String label) => TextField(
+        controller: c,
+        enabled: !_saving,
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        decoration: InputDecoration(labelText: label),
+      );
+
+  Widget _head(String s) => Padding(
+        padding: const EdgeInsets.only(top: 16, bottom: 6),
+        child: Text(s, style: const TextStyle(fontWeight: FontWeight.w800, color: kNavy)),
+      );
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: Text('Ubah tingkatan ${widget.plan.name}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+        content: SizedBox(
+          width: 480,
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Expanded(child: _num(_price, 'Harga (Rp)')),
+                const SizedBox(width: 12),
+                Expanded(child: _num(_discount, 'Diskon layanan (%)')),
+              ]),
+              const SizedBox(height: 8),
+              TextField(controller: _priority, enabled: !_saving, decoration: const InputDecoration(labelText: 'Prioritas booking')),
+              const SizedBox(height: 8),
+              TextField(controller: _promo, enabled: !_saving, decoration: const InputDecoration(labelText: 'Promo eksklusif')),
+              _head('Cuci gratis'),
+              Wrap(spacing: 8, runSpacing: 6, children: [
+                ChoiceChip(label: const Text('Tidak ada'), selected: _free.isEmpty, onSelected: _saving ? null : (_) => setState(() => _free = '')),
+                for (final n in _washNames)
+                  ChoiceChip(label: Text(n), selected: _free == n, onSelected: _saving ? null : (_) => setState(() => _free = n)),
+              ]),
+              if (_free.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                _num(_quota, 'Total jatah selama masa aktif (kali)'),
+                const SizedBox(height: 8),
+                Wrap(spacing: 8, children: [
+                  for (final v in VehicleType.values)
+                    FilterChip(
+                      label: Text(v.label),
+                      selected: _veh.contains(v),
+                      onSelected: _saving
+                          ? null
+                          : (on) => setState(() {
+                                if (on) {
+                                  _veh.add(v);
+                                } else {
+                                  _veh.remove(v);
+                                }
+                              }),
+                    ),
+                ]),
+              ],
+              _head('Saat cuci'),
+              SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Makanan & minuman gratis'), value: _snack, onChanged: _saving ? null : (v) => setState(() => _snack = v)),
+              SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Ruang tunggu VIP'), value: _vip, onChanged: _saving ? null : (v) => setState(() => _vip = v)),
+              SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Kursi pijat'), value: _massage, onChanged: _saving ? null : (v) => setState(() => _massage = v)),
+              _head('Daftar benefit (satu per baris)'),
+              TextField(controller: _benefits, enabled: !_saving, minLines: 4, maxLines: 8, decoration: const InputDecoration(border: OutlineInputBorder())),
+              const SizedBox(height: 12),
+              const Text(
+                'Teks benefit tidak dibuat otomatis dari pilihan di atas, jadi samakan isinya. Membership yang sudah aktif tidak berubah; perubahan berlaku untuk pembelian dan perpanjangan berikutnya.',
+                style: TextStyle(fontSize: 12, color: kMuted),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Text(_error!, style: const TextStyle(color: kError, fontSize: 13, fontWeight: FontWeight.w600)),
+              ],
+            ]),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: _saving ? null : () => Navigator.pop(context), child: const Text('Batal')),
+          FilledButton(onPressed: _saving ? null : _save, child: Text(_saving ? 'Menyimpan...' : 'Simpan')),
+        ],
+      );
 }

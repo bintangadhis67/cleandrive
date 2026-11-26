@@ -1330,4 +1330,16 @@ class MockRepository implements Repository {
     return _bookings.where((b) => b.review != null).toList()
       ..sort((a, b) => b.review!.createdAt.compareTo(a.review!.createdAt));
   }
+
+  @override
+  Future<RewardConfig> saveRewards(RewardConfig config) async {
+    RewardRules.apply(config);
+    return RewardRules.current;
+  }
+
+  @override
+  Future<MembershipPlan> savePlan(MembershipPlan plan) async {
+    applyServerPlans([plan]);
+    return plan;
+  }
 }

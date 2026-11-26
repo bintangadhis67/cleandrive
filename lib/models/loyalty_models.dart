@@ -10,23 +10,117 @@ import 'package:flutter/material.dart';
 // - Coins TIDAK bisa dipakai untuk membeli membership.
 // ---------------------------------------------------------------------------
 
-/// 1 Coin = Rp 50 potongan harga saat pembayaran.
-const kCoinValue = 50;
+/// Konfigurasi reward Coins (bisa diubah admin dari panel). Dikirim dan diterima server sebagai JSON.
+class RewardConfig {
+  final int coinValue, coinStep, coinRedeemCapPct;
+  final List<int> checkInRewards; // 7 angka: hari ke-1 sampai ke-7
+  final int reviewCoins, reviewCommentBonus;
+  final int bandMid, bandHigh; // batas pembayaran (Rp) tingkat menengah dan tertinggi
+  final int bandLowCoins, bandMidCoins, bandHighCoins;
+  final int shopCoinStepRp, shopCoinReward;
+  const RewardConfig({
+    required this.coinValue,
+    required this.coinStep,
+    required this.coinRedeemCapPct,
+    required this.checkInRewards,
+    required this.reviewCoins,
+    required this.reviewCommentBonus,
+    required this.bandMid,
+    required this.bandHigh,
+    required this.bandLowCoins,
+    required this.bandMidCoins,
+    required this.bandHighCoins,
+    required this.shopCoinStepRp,
+    required this.shopCoinReward,
+  });
+
+  factory RewardConfig.fromJson(Map<String, dynamic> j) {
+    int n(dynamic v) => (v as num).toInt();
+    final bands = (j['band_coins'] as Map).cast<String, dynamic>();
+    return RewardConfig(
+      coinValue: n(j['coin_value']),
+      coinStep: n(j['coin_step']),
+      coinRedeemCapPct: n(j['coin_redeem_cap_pct']),
+      checkInRewards: [for (final v in (j['checkin_rewards'] as List)) n(v)],
+      reviewCoins: n(j['review_coins']),
+      reviewCommentBonus: n(j['review_comment_bonus']),
+      bandMid: n(j['band_mid']),
+      bandHigh: n(j['band_high']),
+      bandLowCoins: n(bands['low']),
+      bandMidCoins: n(bands['mid']),
+      bandHighCoins: n(bands['high']),
+      shopCoinStepRp: n(j['shop_coin_step_rp']),
+      shopCoinReward: n(j['shop_coin_reward']),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'coin_value': coinValue,
+        'coin_step': coinStep,
+        'coin_redeem_cap_pct': coinRedeemCapPct,
+        'checkin_rewards': checkInRewards,
+        'review_coins': reviewCoins,
+        'review_comment_bonus': reviewCommentBonus,
+        'band_mid': bandMid,
+        'band_high': bandHigh,
+        'band_coins': {'low': bandLowCoins, 'mid': bandMidCoins, 'high': bandHighCoins},
+        'shop_coin_step_rp': shopCoinStepRp,
+        'shop_coin_reward': shopCoinReward,
+      };
+}
+
+/// Aturan reward yang sedang berlaku. Nilai awal = bawaan aplikasi (sama dengan config/cleandrive.php di server);
+/// setelah katalog dimuat dari server, nilainya diganti pengaturan admin lewat [apply].
+class RewardRules {
+  RewardRules._();
+
+  static RewardConfig current = const RewardConfig(
+    coinValue: 50,
+    coinStep: 10,
+    coinRedeemCapPct: 30,
+    checkInRewards: [3, 3, 5, 5, 8, 8, 15],
+    reviewCoins: 10,
+    reviewCommentBonus: 5,
+    bandMid: 50000,
+    bandHigh: 150000,
+    bandLowCoins: 10,
+    bandMidCoins: 30,
+    bandHighCoins: 75,
+    shopCoinStepRp: 10000,
+    shopCoinReward: 5,
+  );
+
+  static void apply(RewardConfig c) {
+    if (c.checkInRewards.length != 7) return; // data tidak lengkap: abaikan
+    current = c;
+  }
+}
+
+String _rupiahText(int v) {
+  final s = v.toString();
+  final b = StringBuffer();
+  for (var i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 == 0) b.write('.');
+    b.write(s[i]);
+  }
+  return 'Rp $b';
+}
+
+/// 1 Coin = Rp 50 potongan harga saat pembayaran (nilai bawaan; admin bisa mengubahnya).
+int get kCoinValue => RewardRules.current.coinValue;
 
 /// Coins ditukar dalam kelipatan ini, dan maksimal persen dari total yang boleh dipotong.
-/// Batas diturunkan dari 50% ke 30% karena nilai 1 Coin naik 2x (Rp 25 -> Rp 50), supaya total potongan tetap aman.
-const kCoinStep = 10;
-const kCoinRedeemCapPct = 30;
+int get kCoinStep => RewardRules.current.coinStep;
+int get kCoinRedeemCapPct => RewardRules.current.coinRedeemCapPct;
 
-/// Coins pembelian di Toko: tiap kelipatan Rp 10.000 yang DIBAYAR (setelah voucher dan Coins) dapat +5 Coins.
-/// Di bawah Rp 10.000 = 0 Coins. Rp 20.000 = 10 Coins, Rp 30.000 = 15 Coins, dan seterusnya.
-const kShopCoinStepRp = 10000;
-const kShopCoinReward = 5;
+/// Coins pembelian di Toko: tiap kelipatan Rp 10.000 yang DIBAYAR (setelah voucher dan Coins) dapat +5 Coins (nilai bawaan).
+int get kShopCoinStepRp => RewardRules.current.shopCoinStepRp;
+int get kShopCoinReward => RewardRules.current.shopCoinReward;
 
 int shopCoinsFor(int paid) => paid <= 0 ? 0 : paid ~/ kShopCoinStepRp * kShopCoinReward;
 
 /// Catatan yang ditampilkan di layar Coins dan pembayaran.
-const kCoinsUsageNote =
+String get kCoinsUsageNote =>
     'Coins bisa dipakai sebagai potongan saat membayar pesanan dan pembelian toko (1 Coin = Rp $kCoinValue, maksimal $kCoinRedeemCapPct% dari total). Tidak berlaku untuk membeli membership.';
 
 /// Coins maksimal yang boleh ditukar pada satu pembayaran (kelipatan [kCoinStep]).
@@ -37,26 +131,36 @@ int maxRedeemCoins({required int total, required int balance}) {
 }
 
 /// Coins check-in harian untuk hari ke-1 sampai ke-7 (lalu mengulang). Hari ke-7 = bonus streak.
-/// Nilainya separuh dari sebelumnya karena 1 Coin sekarang Rp 50 (nilai Rupiah check-in tetap sama seperti dulu).
-const kCheckInRewards = [3, 3, 5, 5, 8, 8, 15];
+List<int> get kCheckInRewards => RewardRules.current.checkInRewards;
 
 /// Coins dari ulasan (ditambah bonus bila menulis komentar).
-const kReviewCoins = 10;
-const kReviewCommentBonus = 5;
+int get kReviewCoins => RewardRules.current.reviewCoins;
+int get kReviewCommentBonus => RewardRules.current.reviewCommentBonus;
 
 /// Batas tingkat pembayaran (rupiah) untuk Coins transaksi.
-const kBandMid = 50000;
-const kBandHigh = 150000;
+int get kBandMid => RewardRules.current.bandMid;
+int get kBandHigh => RewardRules.current.bandHigh;
 
 /// Tiga tingkat Coins transaksi berdasarkan jumlah yang dibayar.
 enum PayBand {
-  low('Terendah', 10, 'di bawah Rp 50.000'),
-  mid('Menengah', 30, 'Rp 50.000 - Rp 149.999'),
-  high('Tertinggi', 75, 'mulai Rp 150.000');
+  low('Terendah'),
+  mid('Menengah'),
+  high('Tertinggi');
 
-  const PayBand(this.label, this.coins, this.range);
-  final String label, range;
-  final int coins;
+  const PayBand(this.label);
+  final String label;
+
+  int get coins => switch (this) {
+        PayBand.low => RewardRules.current.bandLowCoins,
+        PayBand.mid => RewardRules.current.bandMidCoins,
+        PayBand.high => RewardRules.current.bandHighCoins,
+      };
+
+  String get range => switch (this) {
+        PayBand.low => 'di bawah ${_rupiahText(kBandMid)}',
+        PayBand.mid => '${_rupiahText(kBandMid)} - ${_rupiahText(kBandHigh - 1)}',
+        PayBand.high => 'mulai ${_rupiahText(kBandHigh)}',
+      };
 }
 
 PayBand payBandFor(int amount) =>

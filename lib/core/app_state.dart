@@ -79,6 +79,8 @@ class AppState extends ChangeNotifier {
       final c = await repo.catalog();
       setLiveProducts(c.products);
       WashPackage.applyLive(c.packages);
+      if (c.rewards != null) RewardRules.apply(c.rewards!);
+      applyServerPlans(c.plans);
       _catalogAt = DateTime.now();
     } catch (_) {}
   }

@@ -481,6 +481,8 @@ class ApiRepository implements Repository {
   Future<ServerCatalog> catalog() async {
     final j = _obj(await _call('GET', '/catalog'));
     return ServerCatalog(
+      rewards: j['rewards'] is Map ? RewardConfig.fromJson(_obj(j['rewards'])) : null,
+      plans: [for (final p in _maps(j['plans'])) MembershipPlan.fromJson(p)],
       products: _maps(j['products']).map(_product).toList(),
       packages: [
         for (final p in _maps(j['packages']))
@@ -576,4 +578,27 @@ class ApiRepository implements Repository {
       ],
     );
   }
+
+  @override
+  Future<RewardConfig> saveRewards(RewardConfig config) async =>
+      RewardConfig.fromJson(_obj(await _call('PUT', '/admin/rewards', body: config.toJson())));
+
+  @override
+  Future<MembershipPlan> savePlan(MembershipPlan plan) async => MembershipPlan.fromJson(_obj(await _call(
+        'PUT',
+        '/admin/plans/${plan.tier.name}',
+        body: {
+          'price': plan.price,
+          'discount_pct': plan.discountPct,
+          'priority': plan.priority,
+          'promo': plan.promo,
+          'benefits': plan.benefits,
+          'free_package': plan.freePackage,
+          'free_wash_quota': plan.freeWashQuota,
+          'free_vehicles': [for (final v in plan.freeVehicles) v.name],
+          'snack': plan.snack,
+          'vip': plan.vip,
+          'massage': plan.massage,
+        },
+      )));
 }

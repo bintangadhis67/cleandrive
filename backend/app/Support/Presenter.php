@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\CoinEntry;
 use App\Models\Membership;
 use App\Models\MembershipOrder;
+use App\Models\MembershipPlan;
 use App\Models\MembershipTransaction;
 use App\Models\Payment;
 use App\Models\Product;
@@ -223,6 +224,27 @@ class Presenter
             'kind' => $p->kind,
             'minutes' => (int) $p->minutes,
             'prices' => ['motor' => $p->priceFor('motor'), 'mobil' => $p->priceFor('mobil')],
+        ];
+    }
+
+    /** Dibaca MembershipPlan.fromJson di Flutter. */
+    public static function plan(MembershipPlan $m): array
+    {
+        return [
+            'tier' => $m->tier,
+            'price' => (int) $m->price,
+            'duration_days' => (int) $m->duration_days,
+            'discount_pct' => (int) $m->discount_pct,
+            'priority' => $m->priority,
+            'benefits' => $m->benefits ?? [],
+            'promo' => $m->promo ?? '',
+            'popular' => (bool) $m->popular,
+            'free_package' => $m->free_package ?? '',
+            'free_wash_quota' => (int) $m->free_wash_quota,
+            'free_vehicles' => $m->free_vehicles ?? [],
+            'snack' => (bool) $m->snack,
+            'vip' => (bool) $m->vip,
+            'massage' => (bool) $m->massage,
         ];
     }
 }

@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\MembershipPlan;
 use App\Models\Product;
 use App\Models\Review;
 use App\Models\WashPackage;
+use App\Services\RewardSettings;
 use App\Support\Presenter;
 use Illuminate\Http\JsonResponse;
 
@@ -19,10 +21,27 @@ class CatalogController extends ApiController
         return response()->json($this->allProducts());
     }
 
-    /** Katalog untuk aplikasi: {"products": [...], "packages": [...]}. */
+    /** Katalog untuk aplikasi: produk, paket, pengaturan reward Coins, dan paket membership. */
     public function catalog(): JsonResponse
     {
-        return response()->json(['products' => $this->allProducts(), 'packages' => $this->allPackages()]);
+        return response()->json([
+            'products' => $this->allProducts(),
+            'packages' => $this->allPackages(),
+            'rewards' => RewardSettings::current(),
+            'plans' => $this->allPlans(),
+        ]);
+    }
+
+    /** Pengaturan reward Coins yang berlaku sekarang (nilai awal dari config, ditimpa pengaturan admin). */
+    public function rewards(): JsonResponse
+    {
+        return response()->json(RewardSettings::current());
+    }
+
+    /** Paket membership (Bronze sampai Platinum) dengan harga, diskon, kuota cuci gratis, dan benefit terbaru. */
+    public function plans(): JsonResponse
+    {
+        return response()->json($this->allPlans());
     }
 
     /** Paket layanan (Express, Reguler, Detailing, Ganti Oli) dengan harga efektif motor dan mobil. */
@@ -46,6 +65,12 @@ class CatalogController extends ApiController
             'avg' => round((float) Review::avg('rating'), 2),
             'count' => Review::count(),
         ]);
+    }
+
+    private function allPlans()
+    {
+        return MembershipPlan::where('is_active', true)->orderBy('id')->get()
+            ->map(fn (MembershipPlan $m) => Presenter::plan($m))->values();
     }
 
     private function allPackages()

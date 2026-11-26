@@ -25,5 +25,7 @@ android/app/release
 # OS
 .DS_Store
 Thumbs.db
-*.zip*.bak
+# Paket pasang dan cadangan
+*.zip
 *.bak
+*.sql

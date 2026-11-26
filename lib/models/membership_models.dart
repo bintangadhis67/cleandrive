@@ -112,7 +112,7 @@ class MembershipPlan {
 
 /// Paket bawaan (data contoh). Mudah diubah.
 /// Semua paket berlaku 1 bulan (30 hari).
-const kMembershipPlans = <MembershipPlan>[
+final List<MembershipPlan> kMembershipPlans = <MembershipPlan>[
   MembershipPlan(
     tier: MembershipTier.bronze,
     price: 99000,
@@ -195,6 +195,19 @@ const kMembershipPlans = <MembershipPlan>[
     ],
   ),
 ];
+
+/// Ganti paket bawaan dengan data dari server (per tingkatan). Tingkatan yang tidak ada di [list] dibiarkan.
+void applyServerPlans(List<MembershipPlan> list) {
+  for (final p in list) {
+    final i = kMembershipPlans.indexWhere((x) => x.tier == p.tier);
+    if (i >= 0) {
+      kMembershipPlans[i] = p;
+    } else {
+      kMembershipPlans.add(p);
+    }
+  }
+  kMembershipPlans.sort((a, b) => a.tier.index.compareTo(b.tier.index));
+}
 
 MembershipPlan planOf(MembershipTier t) => kMembershipPlans.firstWhere((p) => p.tier == t);
 

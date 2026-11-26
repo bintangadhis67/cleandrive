@@ -16,5 +16,12 @@ class DatabaseSeeder extends Seeder
             VoucherSeeder::class,
             MembershipPlanSeeder::class,
         ]);
+
+        // Data demo (pesanan, ulasan, Coins). Bila gagal, seeder utama tetap dianggap berhasil.
+        try {
+            $this->call(DemoSeeder::class);
+        } catch (\Throwable $e) {
+            $this->command?->warn('DemoSeeder dilewati: '.$e->getMessage());
+        }
     }
 }

@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'loyalty_models.dart';
+import 'membership_models.dart';
 import 'models.dart';
 
 /// Foto yang dipilih admin dari perangkat, siap diunggah ke server.
@@ -13,5 +15,7 @@ class PickedImage {
 class ServerCatalog {
   final List<Product> products;
   final List<LivePackage> packages;
-  const ServerCatalog({required this.products, this.packages = const []});
+  final RewardConfig? rewards; // null = server lama tanpa pengaturan reward
+  final List<MembershipPlan> plans; // kosong = server lama
+  const ServerCatalog({required this.products, this.packages = const [], this.rewards, this.plans = const []});
 }

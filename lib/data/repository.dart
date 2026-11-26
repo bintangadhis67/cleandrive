@@ -229,4 +229,11 @@ abstract class Repository {
 
   /// Admin: ubah deskripsi, durasi, dan harga satu paket layanan (cuci atau ganti oli) yang sudah ada.
   Future<void> savePackage(String name, {required String desc, required int minutes, required int priceMotor, required int priceMobil});
+
+  /// Admin: simpan pengaturan reward Coins. Berlaku untuk transaksi berikutnya. Hasil: nilai yang berlaku.
+  Future<RewardConfig> saveRewards(RewardConfig config);
+
+  /// Admin: ubah harga, diskon, cuci gratis, dan benefit satu tingkatan membership.
+  /// Membership yang sudah aktif tidak berubah; berlaku untuk pembelian dan perpanjangan berikutnya.
+  Future<MembershipPlan> savePlan(MembershipPlan plan);
 }

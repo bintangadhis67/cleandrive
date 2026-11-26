@@ -253,10 +253,10 @@ class _CoinsScreenState extends State<CoinsScreen> {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(color: Colors.white.withValues(alpha: .10), borderRadius: BorderRadius.circular(14)),
-            child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Icon(Icons.info_outline_rounded, size: 18, color: Colors.white),
-              SizedBox(width: 10),
-              Expanded(child: Text(kCoinsUsageNote, style: TextStyle(color: Colors.white, fontSize: 13, height: 1.45))),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Icon(Icons.info_outline_rounded, size: 18, color: Colors.white),
+              const SizedBox(width: 10),
+              Expanded(child: Text(kCoinsUsageNote, style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.45))),
             ]),
           ),
         ]),

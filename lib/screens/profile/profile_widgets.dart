@@ -238,7 +238,7 @@ class _ProfileCoinsCardState extends State<ProfileCoinsCard> {
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Tentang Coins'),
-          content: const Text(kCoinsUsageNote, style: TextStyle(height: 1.45)),
+          content: Text(kCoinsUsageNote, style: const TextStyle(height: 1.45)),
           actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Mengerti'))],
         ),
       );

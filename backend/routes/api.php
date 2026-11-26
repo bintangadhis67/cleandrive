@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AdminCatalogController;
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\AdminSettingsController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CatalogController;
@@ -46,6 +47,8 @@ Route::middleware(ForceJsonResponse::class)->group(function () {
         Route::get('products', [CatalogController::class, 'products']);
         Route::get('catalog', [CatalogController::class, 'catalog']);
         Route::get('packages', [CatalogController::class, 'packages']);
+        Route::get('rewards', [CatalogController::class, 'rewards']);
+        Route::get('plans', [CatalogController::class, 'plans']);
         Route::get('stocks', [CatalogController::class, 'stocks']);
         Route::get('ratings/summary', [CatalogController::class, 'ratingSummary']);
 
@@ -107,6 +110,8 @@ Route::middleware(ForceJsonResponse::class)->group(function () {
             Route::post('products/{id}', [AdminCatalogController::class, 'update'])->where('id', '[A-Za-z0-9]+');
             Route::delete('products/{id}', [AdminCatalogController::class, 'destroy'])->where('id', '[A-Za-z0-9]+');
             Route::put('packages/{name}', [AdminCatalogController::class, 'updatePackage']);
+            Route::put('rewards', [AdminSettingsController::class, 'saveRewards']);
+            Route::put('plans/{tier}', [AdminSettingsController::class, 'savePlan'])->where('tier', '[a-z]+');
         });
     });
 });
