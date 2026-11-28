@@ -4,6 +4,7 @@ import '../../core/app_state.dart';
 import '../../core/theme.dart';
 import '../../data/repository.dart';
 import '../../models/models.dart';
+import '../../widgets/motion.dart';
 import '../../widgets/widgets.dart';
 import '../garage/garage.dart';
 import '../orders/orders.dart';
@@ -42,16 +43,26 @@ class _Pills extends StatelessWidget {
               padding: const EdgeInsets.only(right: 10),
               child: GestureDetector(
                 onTap: () => onSelect(i),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
-                  decoration: BoxDecoration(
-                    color: selected == i ? kRed : Colors.white,
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(color: selected == i ? kRed : kLine),
+                // Menyusut saat ditekan + berdenyut kecil saat terpilih.
+                child: Pressable(
+                  scale: 0.94,
+                  child: Pop(
+                    trigger: selected == i,
+                    enabled: selected == i,
+                    amount: 1.08,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 240),
+                      curve: Curves.easeOutCubic,
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+                      decoration: BoxDecoration(
+                        color: selected == i ? kRed : Colors.white,
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(color: selected == i ? kRed : kLine),
+                      ),
+                      child: Text(labels[i],
+                          style: TextStyle(fontWeight: FontWeight.w700, color: selected == i ? Colors.white : kProNavy)),
+                    ),
                   ),
-                  child: Text(labels[i],
-                      style: TextStyle(fontWeight: FontWeight.w700, color: selected == i ? Colors.white : kProNavy)),
                 ),
               ),
             ),
@@ -184,6 +195,9 @@ class TransactionHistoryScreen extends StatefulWidget {
 
 class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
   int _filter = 0; // 0 semua, 1 layanan, 2 toko
+  int _dir = 1; // arah geser terakhir: 1 = ke pil di kanan, -1 = ke kiri
+  int _gen = 0; // naik tiap ganti filter, supaya daftar masuk ulang dengan animasi
+  final Object _token = Object(); // pembeda tiap kali layar dibuka
 
   Widget _stat(IconData icon, String label, String value) => Expanded(
         child: Container(
@@ -278,18 +292,44 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
               child: PageList(top: 12, bottom: 32, children: [
                 _summary(tx),
                 const SizedBox(height: 16),
-                _Pills(labels: const ['Semua', 'Layanan', 'Toko'], selected: _filter, onSelect: (i) => setState(() => _filter = i)),
+                _Pills(
+                  labels: const ['Semua', 'Layanan', 'Toko'],
+                  selected: _filter,
+                  onSelect: (i) {
+                    if (i == _filter) return;
+                    setState(() {
+                      _dir = i > _filter ? 1 : -1;
+                      _gen++;
+                      _filter = i;
+                    });
+                  },
+                ),
                 const SizedBox(height: 14),
                 if (list.isEmpty)
-                  EmptyState(
-                    icon: Icons.receipt_long_outlined,
-                    title: 'Belum ada transaksi',
-                    message: 'Transaksi yang sudah dibayar akan muncul di sini.',
-                    actionLabel: 'Booking Sekarang',
-                    onAction: () => _goBooking(context),
+                  FadeSlideIn(
+                    playOnce: (_token, _gen, 'kosong'),
+                    dx: 28.0 * _dir,
+                    dy: 0,
+                    child: EmptyState(
+                      icon: Icons.receipt_long_outlined,
+                      title: 'Belum ada transaksi',
+                      message: 'Transaksi yang sudah dibayar akan muncul di sini.',
+                      actionLabel: 'Booking Sekarang',
+                      onAction: () => _goBooking(context),
+                    ),
                   )
                 else
-                  for (final b in list) Padding(padding: const EdgeInsets.only(bottom: 12), child: _card(b)),
+                  // Kartu masuk bertahap dari arah geser pil (maks. 8 kartu pertama), sekali per ganti filter.
+                  for (var i = 0; i < list.length; i++)
+                    FadeSlideIn(
+                      key: ValueKey('tx-${list[i].id}'),
+                      playOnce: (_token, _gen, list[i].id),
+                      delay: Duration(milliseconds: 50 * (i < 8 ? i : 8)),
+                      duration: const Duration(milliseconds: 380),
+                      dx: 28.0 * _dir,
+                      dy: 0,
+                      child: Padding(padding: const EdgeInsets.only(bottom: 12), child: _card(list[i])),
+                    ),
               ]),
             );
           },
@@ -308,6 +348,9 @@ class BookingHistoryScreen extends StatefulWidget {
 
 class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
   int _filter = 0; // 0 akan datang / berjalan, 1 selesai, 2 dibatalkan
+  int _dir = 1; // arah geser terakhir: 1 = ke tab di kanan, -1 = ke kiri
+  int _gen = 0; // naik tiap ganti tab, supaya daftar masuk ulang dengan animasi
+  final Object _token = Object(); // pembeda tiap kali layar dibuka
 
   /// Tab kapsul: aktif = navy + teks putih, tidak aktif = putih + garis tipis.
   Widget _tabs() {
@@ -319,17 +362,34 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
           Padding(
             padding: const EdgeInsets.only(right: 10),
             child: GestureDetector(
-              onTap: () => setState(() => _filter = i),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                decoration: BoxDecoration(
-                  color: _filter == i ? kRed : Colors.white,
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: _filter == i ? kRed : kRwLine, width: 1.2),
+              onTap: () {
+                if (_filter == i) return;
+                setState(() {
+                  _dir = i > _filter ? 1 : -1;
+                  _gen++;
+                  _filter = i;
+                });
+              },
+              // Menyusut saat ditekan + berdenyut kecil saat terpilih.
+              child: Pressable(
+                scale: 0.94,
+                child: Pop(
+                  trigger: _filter == i,
+                  enabled: _filter == i,
+                  amount: 1.08,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 240),
+                    curve: Curves.easeOutCubic,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: _filter == i ? kRed : Colors.white,
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: _filter == i ? kRed : kRwLine, width: 1.2),
+                    ),
+                    child: Text(labels[i],
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: _filter == i ? Colors.white : kRwText)),
+                  ),
                 ),
-                child: Text(labels[i],
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: _filter == i ? Colors.white : kRwText)),
               ),
             ),
           ),
@@ -434,15 +494,30 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
                 _tabs(),
                 const SizedBox(height: 14),
                 if (list.isEmpty)
-                  EmptyState(
-                    icon: Icons.event_note_rounded,
-                    title: empty[_filter].$1,
-                    message: empty[_filter].$2,
-                    actionLabel: _filter == 0 ? 'Booking Sekarang' : null,
-                    onAction: () => _goBooking(context),
+                  FadeSlideIn(
+                    playOnce: (_token, _gen, 'kosong'),
+                    dx: 28.0 * _dir,
+                    dy: 0,
+                    child: EmptyState(
+                      icon: Icons.event_note_rounded,
+                      title: empty[_filter].$1,
+                      message: empty[_filter].$2,
+                      actionLabel: _filter == 0 ? 'Booking Sekarang' : null,
+                      onAction: () => _goBooking(context),
+                    ),
                   )
                 else
-                  for (final b in list) Padding(padding: const EdgeInsets.only(bottom: 12), child: _card(b)),
+                  // Kartu masuk bertahap dari arah geser tab (maks. 8 kartu pertama), sekali per ganti tab.
+                  for (var i = 0; i < list.length; i++)
+                    FadeSlideIn(
+                      key: ValueKey('bk-${list[i].id}'),
+                      playOnce: (_token, _gen, list[i].id),
+                      delay: Duration(milliseconds: 50 * (i < 8 ? i : 8)),
+                      duration: const Duration(milliseconds: 380),
+                      dx: 28.0 * _dir,
+                      dy: 0,
+                      child: Padding(padding: const EdgeInsets.only(bottom: 12), child: _card(list[i])),
+                    ),
               ]),
             );
           },

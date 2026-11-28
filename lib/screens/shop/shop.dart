@@ -5,6 +5,7 @@ import '../../core/app_state.dart';
 import '../../core/theme.dart';
 import '../../models/catalog.dart';
 import '../../models/models.dart';
+import '../../widgets/motion.dart';
 import '../../widgets/widgets.dart';
 import '../home/customer.dart' show ConfirmOrderScreen;
 import '../rewards/reward_ui.dart';
@@ -40,10 +41,14 @@ class _QtyControl extends StatelessWidget {
   final Product p;
   const _QtyControl(this.p);
 
-  Widget _btn(IconData icon, VoidCallback? onTap) => InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: Padding(padding: const EdgeInsets.all(6), child: Icon(icon, size: 20, color: onTap == null ? kRwSub : kRed)),
+  Widget _btn(IconData icon, VoidCallback? onTap) => Pressable(
+        enabled: onTap != null,
+        scale: 0.8,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: Padding(padding: const EdgeInsets.all(6), child: Icon(icon, size: 20, color: onTap == null ? kRwSub : kRed)),
+        ),
       );
 
   @override
@@ -54,7 +59,10 @@ class _QtyControl extends StatelessWidget {
       final off = left <= 0;
       return Tooltip(
         message: 'Tambah',
-        child: Container(
+        child: Pressable(
+          enabled: !off,
+          scale: 0.85,
+          child: Container(
           width: 38,
           height: 38,
           decoration: BoxDecoration(
@@ -70,22 +78,33 @@ class _QtyControl extends StatelessWidget {
               child: Icon(Icons.add_rounded, size: 22, color: off ? kRwSub : Colors.white),
             ),
           ),
-        ),
+        )),
       );
     }
-    return Container(
-      height: 38,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(19),
-        border: Border.all(color: kRed, width: 1.5),
+    // Stepper muncul dengan efek "pop"; angka jumlah berganti dengan animasi.
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: .85, end: 1),
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutBack,
+      builder: (context, v, child) => Transform.scale(scale: v, child: child),
+      child: Container(
+        height: 38,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(19),
+          border: Border.all(color: kRed, width: 1.5),
+        ),
+        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          _btn(Icons.remove_rounded, () => app.setQty(p, q - 1)),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: FadeTransition(opacity: anim, child: child)),
+            child: Text('$q', key: ValueKey(q), style: const TextStyle(fontWeight: FontWeight.w800, color: kRwText)),
+          ),
+          _btn(Icons.add_rounded, q >= left ? null : () => app.setQty(p, q + 1)),
+        ]),
       ),
-      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        _btn(Icons.remove_rounded, () => app.setQty(p, q - 1)),
-        Text('$q', style: const TextStyle(fontWeight: FontWeight.w800, color: kRwText)),
-        _btn(Icons.add_rounded, q >= left ? null : () => app.setQty(p, q + 1)),
-      ]),
     );
   }
 }
@@ -103,6 +122,8 @@ class ShopScreen extends StatefulWidget {
 
 class _ShopScreenState extends State<ShopScreen> {
   late ProductCategory _cat = widget.initial;
+  int _gen = 0; // naik tiap ganti kategori, supaya kartu masuk ulang dengan animasi
+  final Object _token = Object(); // pembeda tiap kali layar Toko dibuka
   final _search = TextEditingController();
   String _query = ''; // kata kunci pencarian (huruf kecil)
 
@@ -156,22 +177,38 @@ class _ShopScreenState extends State<ShopScreen> {
     return Padding(
       padding: const EdgeInsets.only(right: 10),
       child: GestureDetector(
-        onTap: () => setState(() => _cat = c),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: sel ? kRed : Colors.transparent,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: sel ? kRed : Colors.white.withValues(alpha: .75), width: 1.4),
-            boxShadow: sel ? const [BoxShadow(color: Color(0x55C62026), blurRadius: 12, offset: Offset(0, 4))] : null,
+        onTap: () {
+          if (_cat != c) {
+            setState(() {
+              _cat = c;
+              _gen++;
+            });
+          }
+        },
+        // Menyusut saat ditekan + berdenyut kecil saat terpilih.
+        child: Pressable(
+          scale: 0.94,
+          child: Pop(
+            trigger: sel,
+            enabled: sel,
+            amount: 1.08,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: sel ? kRed : Colors.transparent,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: sel ? kRed : Colors.white.withValues(alpha: .75), width: 1.4),
+                boxShadow: sel ? const [BoxShadow(color: Color(0x55C62026), blurRadius: 12, offset: Offset(0, 4))] : null,
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(c.icon, size: 17, color: Colors.white),
+                const SizedBox(width: 6),
+                Text(c.label, style: TextStyle(fontWeight: sel ? FontWeight.w800 : FontWeight.w600, fontSize: 13.5, color: Colors.white)),
+              ]),
+            ),
           ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(c.icon, size: 17, color: Colors.white),
-            const SizedBox(width: 6),
-            Text(c.label, style: TextStyle(fontWeight: sel ? FontWeight.w800 : FontWeight.w600, fontSize: 13.5, color: Colors.white)),
-          ]),
         ),
       ),
     );
@@ -194,11 +231,15 @@ class _ShopScreenState extends State<ShopScreen> {
             Positioned(
               right: -3,
               top: -3,
-              child: Container(
-                constraints: const BoxConstraints(minWidth: 18),
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                decoration: BoxDecoration(color: kRed, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white, width: 1.5)),
-                child: Text(badge > 99 ? '99+' : '$badge', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
+              child: Pop(
+                trigger: badge,
+                playOnInit: true,
+                child: Container(
+                  constraints: const BoxConstraints(minWidth: 18),
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: BoxDecoration(color: kRed, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white, width: 1.5)),
+                  child: Text(badge > 99 ? '99+' : '$badge', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
+                ),
               ),
             ),
         ]),
@@ -311,7 +352,10 @@ class _ShopScreenState extends State<ShopScreen> {
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: () => _openDetail(p),
-        child: Container(
+        // Kartu menyusut saat ditekan; gambarnya "terbang" ke halaman detail (Hero).
+        child: Pressable(
+          scale: 0.96,
+          child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
@@ -325,7 +369,7 @@ class _ShopScreenState extends State<ShopScreen> {
                   height: 124,
                   width: double.infinity,
                   padding: const EdgeInsets.all(8),
-                  child: Opacity(opacity: out ? .4 : 1, child: ProductImage(p)),
+                  child: Opacity(opacity: out ? .4 : 1, child: Hero(tag: 'product-${p.id}', child: ProductImage(p))),
                 ),
                 if (p.vehicleTag.isNotEmpty) Positioned(left: 8, top: 8, child: _badge(p.vehicleTag, kRwNavy)),
                 if (low) Positioned(right: 8, top: 8, child: _badge('Sisa $left', kRwGold, fg: kRwText)),
@@ -340,12 +384,13 @@ class _ShopScreenState extends State<ShopScreen> {
                   const SizedBox(height: 2),
                   Text(p.desc, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: kRwSub, fontSize: 11.5)),
                   const Spacer(),
-                  _buyArea(p, left),
+                  // Tinggi area beli berubah halus saat tombol "+" berganti jadi stepper.
+                  AnimatedSize(duration: const Duration(milliseconds: 200), curve: Curves.easeOut, alignment: Alignment.topLeft, child: _buyArea(p, left)),
                 ]),
               ),
             ),
           ]),
-        ),
+        )),
       ),
     );
   }
@@ -390,7 +435,11 @@ class _ShopScreenState extends State<ShopScreen> {
         listenable: app,
         builder: (context, _) {
           if (app.cartCount == 0) return const SizedBox.shrink();
-          return Container(
+          // Bar keranjang naik dari bawah saat produk pertama ditambahkan.
+          return FadeSlideIn(
+            dy: 36,
+            duration: const Duration(milliseconds: 320),
+            child: Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: kLine))),
@@ -403,7 +452,12 @@ class _ShopScreenState extends State<ShopScreen> {
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
                         Text('${app.cartCount} item', style: const TextStyle(fontSize: 12.5, color: kMuted)),
-                        Text(rp(app.cartTotal), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                        Pop(
+                          trigger: app.cartTotal,
+                          amount: 1.08,
+                          alignment: Alignment.centerLeft,
+                          child: Text(rp(app.cartTotal), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                        ),
                       ]),
                     ),
                     FilledButton.icon(
@@ -416,7 +470,7 @@ class _ShopScreenState extends State<ShopScreen> {
                 ),
               ),
             ),
-          );
+          ));
         },
       );
 
@@ -440,7 +494,10 @@ class _ShopScreenState extends State<ShopScreen> {
             return Column(children: [
               _header(context, pad),
               Expanded(
-                child: ListenableBuilder(
+                // Ganti kategori: isi bergeser sesuai arah chip (Makanan, Minuman, Oli).
+                child: SwipeSwitcher(
+                  index: _cat.index,
+                  child: ListenableBuilder(
                   listenable: app,
                   builder: (context, _) => ListView(padding: EdgeInsets.fromLTRB(pad, 16, pad, 16), children: [
                     if (_cat == ProductCategory.oli) _oilBanner(),
@@ -457,11 +514,18 @@ class _ShopScreenState extends State<ShopScreen> {
                           crossAxisSpacing: 12,
                           mainAxisExtent: 282,
                         ),
-                        itemBuilder: (_, i) => _card(list[i]),
+                        // Kartu masuk bertahap (maks. 8 kartu pertama), hanya sekali per ganti kategori.
+                        itemBuilder: (_, i) => FadeSlideIn(
+                          playOnce: (_token, _gen, list[i].id),
+                          delay: Duration(milliseconds: 45 * (i < 8 ? i : 8)),
+                          duration: const Duration(milliseconds: 380),
+                          dy: 16,
+                          child: _card(list[i]),
+                        ),
                       ),
                     if (list.isNotEmpty) _outletNote(),
                   ]),
-                ),
+                )),
               ),
               _cartBar(),
             ]);
@@ -585,7 +649,7 @@ class ProductDetailScreen extends StatelessWidget {
                       child: SizedBox(
                         height: 300,
                         width: double.infinity,
-                        child: Opacity(opacity: out ? .45 : 1, child: ProductImage(p, height: 300, cacheWidth: 900)),
+                        child: Opacity(opacity: out ? .45 : 1, child: Hero(tag: 'product-${p.id}', child: ProductImage(p, height: 300, cacheWidth: 900))),
                       ),
                     ),
                     const SizedBox(height: 14),

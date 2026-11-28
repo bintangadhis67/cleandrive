@@ -51,6 +51,8 @@ class AppState extends ChangeNotifier {
   Voucher? pendingVoucher;
 
   String? get user => me?.name;
+  /// true = pengguna baru saja membuat akun pada sesi ini (dipakai untuk sapaan Beranda).
+  bool isNewUser = false;
   String get email => me?.email ?? '';
   String get phone => me?.phone ?? '';
   bool get isAdmin => me?.isAdmin ?? false;
@@ -152,11 +154,13 @@ class AppState extends ChangeNotifier {
 
   Future<void> login(String email, String pass) async {
     me = await repo.login(email, pass);
+    isNewUser = false;
     await _afterLogin();
   }
 
   Future<void> register(String name, String email, String phone, String pass) async {
     me = await repo.register(name, email, phone, pass);
+    isNewUser = true;
     await _afterLogin();
   }
 
@@ -165,6 +169,7 @@ class AppState extends ChangeNotifier {
       await repo.logout();
     } catch (_) {}
     me = null;
+    isNewUser = false;
     bookings = [];
     vouchers = [];
     quota = const VoucherQuota();

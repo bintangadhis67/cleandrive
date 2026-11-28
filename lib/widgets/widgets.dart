@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../core/theme.dart';
 import '../data/repository.dart';
 import '../models/models.dart';
+import 'motion.dart';
 
 final fmtDateTime = DateFormat('d MMM yyyy, HH:mm', 'id_ID');
 final fmtDate = DateFormat('d MMM yyyy', 'id_ID');
@@ -59,22 +60,26 @@ class Panel extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => Container(
-        decoration: BoxDecoration(
-          color: color,
+  Widget build(BuildContext context) {
+    final card = Container(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(kRadiusCard),
+        border: outlined ? Border.all(color: kLineSoft) : null,
+        boxShadow: kShadowSoft,
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
           borderRadius: BorderRadius.circular(kRadiusCard),
-          border: outlined ? Border.all(color: kLineSoft) : null,
-          boxShadow: kShadowSoft,
+          onTap: onTap,
+          child: Padding(padding: padding, child: child),
         ),
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(kRadiusCard),
-            onTap: onTap,
-            child: Padding(padding: padding, child: child),
-          ),
-        ),
-      );
+      ),
+    );
+    // Kartu yang bisa diklik menyusut sedikit saat ditekan.
+    return onTap == null ? card : Pressable(scale: 0.98, child: card);
+  }
 }
 
 /// Kartu navy bergradasi (layanan dan banner).
@@ -120,17 +125,21 @@ class RedButton extends StatelessWidget {
   const RedButton(this.label, {super.key, this.onPressed, this.icon, this.busy = false, this.color});
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-        width: double.infinity,
-        child: FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: color ?? kRed),
-          onPressed: busy ? null : onPressed,
-          child: busy
-              ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
-              : Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
-                  if (icon != null) ...[Icon(icon, size: 20), const SizedBox(width: 8)],
-                  Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
-                ]),
+  Widget build(BuildContext context) => Pressable(
+        enabled: !busy && onPressed != null,
+        scale: 0.97,
+        child: SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: color ?? kRed),
+            onPressed: busy ? null : onPressed,
+            child: busy
+                ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
+                : Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
+                    if (icon != null) ...[Icon(icon, size: 20), const SizedBox(width: 8)],
+                    Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
+                  ]),
+          ),
         ),
       );
 }

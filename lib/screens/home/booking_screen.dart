@@ -4,6 +4,7 @@ import '../../core/app_state.dart';
 import '../../core/theme.dart';
 import '../../models/catalog.dart';
 import '../../models/models.dart';
+import '../../widgets/motion.dart';
 import '../../widgets/widgets.dart';
 import '../profile/help.dart';
 import '../shop/shop.dart';
@@ -173,28 +174,51 @@ class _BookingScreenState extends State<BookingScreen> {
   Widget _modeToggle() => Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22), boxShadow: _softShadow),
-        child: Row(children: [
-          Expanded(child: _modeBtn('Cuci', Icons.local_car_wash_rounded, !_isOil, () => _setOilMode(false))),
-          Expanded(child: _modeBtn('Ganti Oli', Icons.opacity_rounded, _isOil, () => _setOilMode(true))),
+        child: Stack(children: [
+          // Penanda merah yang meluncur ke tombol terpilih (Cuci atau Ganti Oli).
+          Positioned.fill(
+            child: AnimatedAlign(
+              alignment: _isOil ? Alignment.centerRight : Alignment.centerLeft,
+              duration: const Duration(milliseconds: 320),
+              curve: Curves.easeOutCubic,
+              child: FractionallySizedBox(
+                widthFactor: .5,
+                heightFactor: 1,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: _kRed,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: const [BoxShadow(color: Color(0x44C62026), blurRadius: 12, offset: Offset(0, 4))],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Row(children: [
+            Expanded(child: _modeBtn('Cuci', Icons.local_car_wash_rounded, !_isOil, () => _setOilMode(false))),
+            Expanded(child: _modeBtn('Ganti Oli', Icons.opacity_rounded, _isOil, () => _setOilMode(true))),
+          ]),
         ]),
       );
 
+  /// Tombol mode: warna ikon dan teks berubah halus (putih di atas penanda merah, navy bila tidak dipilih).
   Widget _modeBtn(String label, IconData icon, bool sel, VoidCallback onTap) => GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(vertical: 11),
-          decoration: BoxDecoration(
-            color: sel ? _kRed : Colors.transparent,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: sel ? const [BoxShadow(color: Color(0x44C62026), blurRadius: 12, offset: Offset(0, 4))] : null,
+        child: Pressable(
+          scale: 0.96,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 11),
+            child: TweenAnimationBuilder<Color?>(
+              tween: ColorTween(end: sel ? Colors.white : _kNavy),
+              duration: const Duration(milliseconds: 260),
+              builder: (context, color, _) => Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Icon(icon, size: 19, color: color),
+                const SizedBox(width: 7),
+                Text(label, style: TextStyle(fontWeight: FontWeight.w800, color: color)),
+              ]),
+            ),
           ),
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(icon, size: 19, color: sel ? Colors.white : _kNavy),
-            const SizedBox(width: 7),
-            Text(label, style: TextStyle(fontWeight: FontWeight.w800, color: sel ? Colors.white : _kNavy)),
-          ]),
         ),
       );
 
@@ -204,7 +228,9 @@ class _BookingScreenState extends State<BookingScreen> {
     final img = v == VehicleType.motor ? 'assets/images/booking_vehicle_motor.png' : 'assets/images/booking_vehicle_mobil.png';
     return GestureDetector(
       onTap: () => _setVehicle(v),
-      child: AnimatedContainer(
+      child: Pressable(
+        scale: 0.97,
+        child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         height: 156,
         decoration: BoxDecoration(
@@ -264,7 +290,7 @@ class _BookingScreenState extends State<BookingScreen> {
             ),
           ]),
         ),
-      ),
+      )),
     );
   }
 
@@ -708,7 +734,13 @@ class _BookingScreenState extends State<BookingScreen> {
                     Align(alignment: Alignment.centerLeft, child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 420), child: Column(children: modeAndRating)))
                   else
                     ...modeAndRating,
-                  content,
+                  // Ganti mode: isi bergeser (Cuci ke kanan, Ganti Oli ke kiri) dan tinggi berubah halus.
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 280),
+                    curve: Curves.easeOutCubic,
+                    alignment: Alignment.topCenter,
+                    child: SwipeSwitcher(index: _isOil ? 1 : 0, child: content),
+                  ),
                 ]),
               ),
             ]),
@@ -766,20 +798,36 @@ class _BookingHeader extends StatelessWidget {
               ),
             ),
           ),
-          if (oil)
-            // Mode Ganti Oli: gambar oli (background transparan) menggantikan gambar mobil.
-            Positioned(
-              right: wide ? 16 : 4,
-              bottom: wide ? 8 : 6,
-              child: IgnorePointer(child: Image.asset('assets/images/booking_header_oil.png', height: wide ? 270 : 185, fit: BoxFit.contain)),
-            )
-          else
-            // Mode Cuci: gambar mobil.
-            Positioned(
-              right: wide ? -10 : -34,
-              bottom: 0,
-              child: IgnorePointer(child: Image.asset('assets/images/booking_header_car.png', width: wide ? 560 : 330, fit: BoxFit.fitWidth)),
+          // Gambar mobil (Cuci) dan botol oli (Ganti Oli) bertukar dengan geser + pudar.
+          Positioned.fill(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 450),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              layoutBuilder: (current, previous) => Stack(fit: StackFit.expand, children: [...previous, if (current != null) current]),
+              transitionBuilder: (child, anim) => FadeTransition(
+                opacity: anim,
+                child: SlideTransition(position: Tween<Offset>(begin: const Offset(.12, 0), end: Offset.zero).animate(anim), child: child),
+              ),
+              child: oil
+                  // Mode Ganti Oli: gambar oli (background transparan) menggantikan gambar mobil.
+                  ? Stack(key: const ValueKey('oil'), children: [
+                      Positioned(
+                        right: wide ? 16 : 4,
+                        bottom: wide ? 8 : 6,
+                        child: IgnorePointer(child: Image.asset('assets/images/booking_header_oil.png', height: wide ? 270 : 185, fit: BoxFit.contain)),
+                      ),
+                    ])
+                  // Mode Cuci: gambar mobil.
+                  : Stack(key: const ValueKey('car'), children: [
+                      Positioned(
+                        right: wide ? -10 : -34,
+                        bottom: 0,
+                        child: IgnorePointer(child: Image.asset('assets/images/booking_header_car.png', width: wide ? 560 : 330, fit: BoxFit.fitWidth)),
+                      ),
+                    ]),
             ),
+          ),
           Padding(
             padding: wide ? const EdgeInsets.fromLTRB(24, 22, 24, 26) : EdgeInsets.fromLTRB(16, top + 10, 16, 22),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -787,11 +835,15 @@ class _BookingHeader extends StatelessWidget {
                 // tombol kembali dihapus; ruang kosong menjaga judul tetap di tengah
                 const SizedBox(width: 46, height: 46),
                 Expanded(
-                  child: Text(title,
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: Colors.white, fontSize: wide ? 26 : 22, fontWeight: FontWeight.w800)),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: Text(title,
+                        key: ValueKey(title),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: Colors.white, fontSize: wide ? 26 : 22, fontWeight: FontWeight.w800)),
+                  ),
                 ),
                 _circle(Icons.headset_mic_outlined, onSupport, 'Bantuan'),
               ]),
@@ -808,18 +860,23 @@ class _BookingHeader extends StatelessWidget {
                 ),
               ]),
               const SizedBox(height: 8),
-              Text.rich(
-                // slogan mengikuti mode: Cuci vs Ganti Oli
-                oil
-                    ? const TextSpan(children: [
-                        TextSpan(text: 'Oli Berkualitas,\nMesin Lebih '),
-                        TextSpan(text: 'Awet & Bertenaga', style: TextStyle(color: _kGold)),
-                      ])
-                    : const TextSpan(children: [
-                        TextSpan(text: 'Mobil Bersih,\nPerjalanan '),
-                        TextSpan(text: 'Lebih Nyaman', style: TextStyle(color: _kGold)),
-                      ]),
-                style: TextStyle(color: Colors.white, fontSize: wide ? 20 : 15, fontWeight: FontWeight.w600, height: 1.3),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 350),
+                layoutBuilder: (current, previous) => Stack(alignment: Alignment.topLeft, children: [...previous, if (current != null) current]),
+                child: Text.rich(
+                  // slogan mengikuti mode: Cuci vs Ganti Oli
+                  oil
+                      ? const TextSpan(children: [
+                          TextSpan(text: 'Oli Berkualitas,\nMesin Lebih '),
+                          TextSpan(text: 'Awet & Bertenaga', style: TextStyle(color: _kGold)),
+                        ])
+                      : const TextSpan(children: [
+                          TextSpan(text: 'Mobil Bersih,\nPerjalanan '),
+                          TextSpan(text: 'Lebih Nyaman', style: TextStyle(color: _kGold)),
+                        ]),
+                  key: ValueKey(oil),
+                  style: TextStyle(color: Colors.white, fontSize: wide ? 20 : 15, fontWeight: FontWeight.w600, height: 1.3),
+                ),
               ),
               SizedBox(height: wide ? 60 : 40),
             ]),

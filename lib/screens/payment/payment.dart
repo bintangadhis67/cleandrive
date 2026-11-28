@@ -8,6 +8,7 @@ import '../../core/theme.dart';
 import '../../data/repository.dart';
 import '../../models/loyalty_models.dart';
 import '../../models/models.dart';
+import '../../widgets/motion.dart';
 import '../../widgets/widgets.dart';
 import '../orders/orders.dart';
 import '../rewards/loyalty.dart';
@@ -500,30 +501,33 @@ class PaymentSuccessScreen extends StatelessWidget {
                 SizedBox(
                   width: double.infinity, // memenuhi lebar kartu supaya isi benar-benar di tengah
                   child: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
-                  TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0, end: 1),
-                    duration: const Duration(milliseconds: 650),
-                    curve: Curves.elasticOut,
-                    builder: (_, v, child) => Transform.scale(scale: v, child: child),
-                    child: const RwCheckCircle(size: 96),
-                  ),
+                  // Centang animasi + gelombang + konfeti (SuccessBurst).
+                  const SuccessBurst(size: 96),
                   const SizedBox(height: 18),
-                  const Text('Pembayaran Berhasil!',
-                      textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
+                  const FadeSlideIn(
+                    delay: Duration(milliseconds: 400),
+                    child: Text('Pembayaran Berhasil!',
+                        textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
+                  ),
                   const SizedBox(height: 6),
-                  Text(
-                    shop
-                        ? 'Terima kasih, pembelianmu berhasil. Ambil barang di kasir CleanDrive.'
-                        : 'Terima kasih, pesanan Anda sudah dikonfirmasi.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white.withValues(alpha: .88), fontSize: 14, height: 1.4),
+                  FadeSlideIn(
+                    delay: const Duration(milliseconds: 520),
+                    child: Text(
+                      shop
+                          ? 'Terima kasih, pembelianmu berhasil. Ambil barang di kasir CleanDrive.'
+                          : 'Terima kasih, pesanan Anda sudah dikonfirmasi.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white.withValues(alpha: .88), fontSize: 14, height: 1.4),
+                    ),
                   ),
                   ]),
                 ),
               ]),
             ),
             const SizedBox(height: 16),
-            RwCard(
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 650),
+              child: RwCard(
               padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
               child: Column(children: [
                 rwKv('No. Transaksi', payment.trx, bold: true, vPad: 8),
@@ -538,10 +542,12 @@ class PaymentSuccessScreen extends StatelessWidget {
                 rwDivider(v: 2),
                 rwKv('Total Pembayaran', rp(payment.amount), bold: true, vPad: 8),
               ]),
-            ),
+            )),
             if (payment.coinsEarned > 0) ...[
               const SizedBox(height: 14),
-              RwCard(
+              FadeSlideIn(
+                delay: const Duration(milliseconds: 800),
+                child: RwCard(
                 color: const Color(0xFFFFF7E0),
                 borderColor: const Color(0xFFFFE3A0),
                 padding: const EdgeInsets.all(16),
@@ -563,15 +569,17 @@ class PaymentSuccessScreen extends StatelessWidget {
                     ]),
                   ),
                 ]),
-              ),
+              )),
             ],
             const SizedBox(height: 22),
-            RwButton(shop ? 'Lihat Pembelian' : 'Lihat Pesanan', onPressed: () {
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 950),
+              child: RwButton(shop ? 'Lihat Pembelian' : 'Lihat Pesanan', onPressed: () {
               final nav = Navigator.of(context);
               app.requestTab(1);
               nav.popUntil((r) => r.isFirst);
               nav.push(MaterialPageRoute(builder: (_) => DetailScreen(id: payment.bookingId)));
-            }),
+            })),
             Center(
               child: TextButton(
                 onPressed: () {

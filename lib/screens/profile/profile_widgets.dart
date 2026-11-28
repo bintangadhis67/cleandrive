@@ -5,6 +5,7 @@ import '../../core/theme.dart';
 import '../../models/loyalty_models.dart';
 import '../../models/membership_models.dart';
 import '../../models/models.dart';
+import '../../widgets/hero_car.dart';
 import '../../widgets/widgets.dart';
 import '../rewards/loyalty.dart';
 import '../rewards/membership.dart';
@@ -66,14 +67,8 @@ class ProfileHeader extends StatelessWidget {
               ),
             ),
           ),
-          // foto mobil + percikan air: memakai gambar yang sama dengan Beranda (utuh, tidak bolong)
-          Positioned(
-            right: wide ? -10 : -34,
-            bottom: 0,
-            child: IgnorePointer(
-              child: Image.asset('assets/images/home_hero_car.png', width: wide ? 620 : 340, fit: BoxFit.fitWidth),
-            ),
-          ),
+          // foto mobil + percikan air: sama seperti header Booking dan Beranda (besar, tepi menyatu)
+          const Positioned.fill(child: HeroCarBackdrop()),
           Padding(
             padding: wide ? const EdgeInsets.fromLTRB(28, 22, 24, 28) : EdgeInsets.fromLTRB(20, top + 14, 16, 20),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

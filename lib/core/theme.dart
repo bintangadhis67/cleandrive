@@ -2,6 +2,8 @@ import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../widgets/motion.dart' show SlideFadePageTransitionsBuilder;
+
 // ---------------------------------------------------------------------------
 // DESIGN TOKENS CleanDrive
 // Semua warna, radius, jarak, dan bayangan dipusatkan di sini supaya konsisten.
@@ -65,12 +67,12 @@ ThemeData buildTheme() {
     textTheme: tt,
     // Transisi halaman yang halus di semua platform.
     pageTransitionsTheme: const PageTransitionsTheme(builders: {
-      TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+      TargetPlatform.android: SlideFadePageTransitionsBuilder(),
       TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
       TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
-      TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
-      TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
-      TargetPlatform.fuchsia: FadeUpwardsPageTransitionsBuilder(),
+      TargetPlatform.windows: SlideFadePageTransitionsBuilder(),
+      TargetPlatform.linux: SlideFadePageTransitionsBuilder(),
+      TargetPlatform.fuchsia: SlideFadePageTransitionsBuilder(),
     }),
     appBarTheme: AppBarTheme(
       backgroundColor: kBg,

@@ -11,6 +11,7 @@ import 'data/mock_repository.dart';
 import 'screens/admin/admin.dart';
 import 'screens/auth/auth.dart';
 import 'screens/home/customer.dart';
+import 'widgets/motion.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -127,33 +128,45 @@ class SplashScreen extends StatelessWidget {
     final logoW = (MediaQuery.sizeOf(context).width * 0.6).clamp(160.0, 260.0);
     return Scaffold(
       backgroundColor: kNavy,
-      body: Center(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          // Kotak putih dihapus; memakai logo transparan agar menyatu dengan latar navy.
-          Image.asset('assets/images/logo_transparent.png', width: logoW, fit: BoxFit.contain),
-          const SizedBox(height: 24),
-          Text('DRIVE CLEANER. GO FURTHER.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.orbitron(color: kCream, fontSize: 12, letterSpacing: 3, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 36),
-          const Text('Memeriksa akun...', style: TextStyle(color: Colors.white54, fontSize: 12)),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: 150,
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: 1),
-              duration: const Duration(milliseconds: 2200),
-              builder: (_, v, __) => LinearProgressIndicator(
-                value: v,
-                minHeight: 4,
-                borderRadius: BorderRadius.circular(4),
-                color: kRed,
-                backgroundColor: Colors.white12,
-              ),
+      body: Stack(children: [
+        // Gelembung sabun naik pelan di latar.
+        const Positioned.fill(child: FloatingBubbles()),
+        Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            // Logo muncul membesar + kilau berjalan (ShineLogo).
+            ShineLogo(child: Image.asset('assets/images/logo_transparent.png', width: logoW, fit: BoxFit.contain)),
+            const SizedBox(height: 24),
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 600),
+              child: Text('DRIVE CLEANER. GO FURTHER.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.orbitron(color: kCream, fontSize: 12, letterSpacing: 3, fontWeight: FontWeight.w600)),
             ),
-          ),
-        ]),
-      ),
+            const SizedBox(height: 36),
+            FadeSlideIn(
+              delay: const Duration(milliseconds: 800),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const Text('Memeriksa akun...', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: 150,
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: 1),
+                    duration: const Duration(milliseconds: 1800),
+                    builder: (_, v, __) => LinearProgressIndicator(
+                      value: v,
+                      minHeight: 4,
+                      borderRadius: BorderRadius.circular(4),
+                      color: kRed,
+                      backgroundColor: Colors.white12,
+                    ),
+                  ),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
     );
   }
 }

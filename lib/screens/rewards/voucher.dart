@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/app_state.dart';
 import '../../core/theme.dart';
 import '../../models/models.dart';
+import '../../widgets/motion.dart';
 import '../../widgets/widgets.dart';
 import 'reward_ui.dart';
 
@@ -286,32 +287,38 @@ class _VoucherClaimScreenState extends State<VoucherClaimScreen> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 640),
           child: ListView(padding: const EdgeInsets.all(20), children: [
-            const SizedBox(height: 8),
+            // Ruang ekstra di atas saat berhasil, supaya konfeti tidak terpotong.
+            SizedBox(height: _claimed ? 36 : 8),
             Center(
-              child: Container(
-                width: 68,
-                height: 68,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _claimed ? kRwGreen : kRwNavy,
-                  boxShadow: kRwShadow,
-                ),
-                child: Icon(_claimed ? Icons.check_rounded : Icons.local_offer_rounded,
-                    color: _claimed ? Colors.white : kRwGold, size: 36),
-              ),
+              // Saat berhasil diklaim: centang animasi + gelombang + konfeti (SuccessBurst).
+              child: _claimed
+                  ? const SuccessBurst(size: 68, color: kRwGreen)
+                  : Container(
+                      width: 68,
+                      height: 68,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: kRwNavy,
+                        boxShadow: kRwShadow,
+                      ),
+                      child: const Icon(Icons.local_offer_rounded, color: kRwGold, size: 36),
+                    ),
             ),
             const SizedBox(height: 14),
             Center(
               child: _claimed
-                  ? const Text.rich(TextSpan(children: [
-                      TextSpan(text: 'Voucher ', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: kRwText)),
-                      TextSpan(text: 'berhasil diklaim!', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: kRwGreen)),
-                    ]))
+                  ? const FadeSlideIn(
+                      delay: Duration(milliseconds: 350),
+                      child: Text.rich(TextSpan(children: [
+                        TextSpan(text: 'Voucher ', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: kRwText)),
+                        TextSpan(text: 'berhasil diklaim!', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: kRwGreen)),
+                      ])),
+                    )
                   : const Text('Klaim voucher spesialmu',
                       style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: kRwText)),
             ),
             const SizedBox(height: 20),
-            VoucherTicket(v),
+            FadeSlideIn(delay: const Duration(milliseconds: 150), child: VoucherTicket(v)),
             const SizedBox(height: 14),
             const VoucherQuotaBanner(),
             const SizedBox(height: 22),

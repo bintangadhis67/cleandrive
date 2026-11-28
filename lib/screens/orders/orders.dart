@@ -8,6 +8,7 @@ import 'package:printing/printing.dart';
 import '../../core/app_state.dart';
 import '../../core/theme.dart';
 import '../../models/models.dart';
+import '../../widgets/motion.dart';
 import '../../widgets/widgets.dart';
 import '../outlet/outlet.dart';
 import '../payment/payment.dart';
@@ -114,6 +115,9 @@ class OrderThumb extends StatelessWidget {
 
 class _OrdersScreenState extends State<OrdersScreen> {
   int _filter = 0; // 0 semua, 1 menunggu, 2 diproses, 3 selesai, 4 dibatalkan, 5 ulasan
+  int _dir = 1; // arah geser terakhir: 1 = ke filter di kanan, -1 = ke kiri
+  int _gen = 0; // naik tiap ganti filter, supaya daftar masuk ulang dengan animasi
+  final Object _token = Object(); // pembeda tiap kali layar Riwayat dibuka
   static const _labels = ['Semua', 'Menunggu', 'Diproses', 'Selesai', 'Dibatalkan', 'Ulasan'];
 
   /// Pil filter di atas header gradasi: aktif = merah + teks putih, tidak aktif = transparan + garis putih.
@@ -122,19 +126,35 @@ class _OrdersScreenState extends State<OrdersScreen> {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: GestureDetector(
-        onTap: () => setState(() => _filter = i),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-          decoration: BoxDecoration(
-            color: sel ? kRed : Colors.transparent,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: sel ? kRed : Colors.white.withValues(alpha: .75), width: 1.3),
-            boxShadow: sel ? const [BoxShadow(color: Color(0x55C62026), blurRadius: 10, offset: Offset(0, 4))] : null,
+        onTap: () {
+          if (_filter == i) return;
+          setState(() {
+            _dir = i > _filter ? 1 : -1;
+            _gen++;
+            _filter = i;
+          });
+        },
+        // Menyusut saat ditekan + berdenyut kecil saat terpilih.
+        child: Pressable(
+          scale: 0.94,
+          child: Pop(
+            trigger: sel,
+            enabled: sel,
+            amount: 1.08,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+              decoration: BoxDecoration(
+                color: sel ? kRed : Colors.transparent,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: sel ? kRed : Colors.white.withValues(alpha: .75), width: 1.3),
+                boxShadow: sel ? const [BoxShadow(color: Color(0x55C62026), blurRadius: 10, offset: Offset(0, 4))] : null,
+              ),
+              child: Text(_labels[i],
+                  style: TextStyle(fontWeight: sel ? FontWeight.w800 : FontWeight.w600, fontSize: 13, color: Colors.white)),
+            ),
           ),
-          child: Text(_labels[i],
-              style: TextStyle(fontWeight: sel ? FontWeight.w800 : FontWeight.w600, fontSize: 13, color: Colors.white)),
         ),
       ),
     );
@@ -364,15 +384,30 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     slivers: [
                       SliverToBoxAdapter(child: _header(context, side)),
                       if (list.isEmpty)
-                        SliverToBoxAdapter(child: Padding(padding: EdgeInsets.symmetric(horizontal: side), child: _empty()))
+                        SliverToBoxAdapter(
+                          child: FadeSlideIn(
+                            playOnce: (_token, _gen, 'kosong'),
+                            dx: 28.0 * _dir,
+                            dy: 0,
+                            child: Padding(padding: EdgeInsets.symmetric(horizontal: side), child: _empty()),
+                          ),
+                        )
                       else
                         SliverPadding(
                           padding: EdgeInsets.fromLTRB(side, 16, side, 28),
                           sliver: SliverList(
                             delegate: SliverChildBuilderDelegate(
-                              (context, i) => Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: _filter == 5 ? _reviewCard(context, list[i]) : _card(context, list[i]),
+                              // Item masuk bertahap dari arah geser filter (maks. 8 item pertama), sekali per ganti filter.
+                              (context, i) => FadeSlideIn(
+                                playOnce: (_token, _gen, list[i].id),
+                                delay: Duration(milliseconds: 50 * (i < 8 ? i : 8)),
+                                duration: const Duration(milliseconds: 380),
+                                dx: 28.0 * _dir,
+                                dy: 0,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: _filter == 5 ? _reviewCard(context, list[i]) : _card(context, list[i]),
+                                ),
                               ),
                               childCount: list.length,
                             ),

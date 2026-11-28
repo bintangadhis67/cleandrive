@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme.dart';
 import '../../models/membership_models.dart';
+import '../../widgets/motion.dart';
 
 // ===========================================================================
 // KOMPONEN UI BERSAMA untuk halaman Membership, CleanDrive Coins, dan Voucher Saya.
@@ -97,22 +98,26 @@ class RwCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => Container(
-        decoration: BoxDecoration(
-          color: color,
+  Widget build(BuildContext context) {
+    final card = Container(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(radius),
+        border: borderColor == null ? null : Border.all(color: borderColor!, width: borderWidth),
+        boxShadow: kRwShadowThin,
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
           borderRadius: BorderRadius.circular(radius),
-          border: borderColor == null ? null : Border.all(color: borderColor!, width: borderWidth),
-          boxShadow: kRwShadowThin,
+          onTap: onTap,
+          child: Padding(padding: padding, child: child),
         ),
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(radius),
-            onTap: onTap,
-            child: Padding(padding: padding, child: child),
-          ),
-        ),
-      );
+      ),
+    );
+    // Kartu yang bisa diklik menyusut sedikit saat ditekan.
+    return onTap == null ? card : Pressable(scale: 0.98, child: card);
+  }
 }
 
 /// Kartu utama bergradasi navy dengan hiasan lingkaran halus.
@@ -207,7 +212,10 @@ class RwButton extends StatelessWidget {
             if (icon != null) ...[Icon(icon, size: 20), const SizedBox(width: 8)],
             Flexible(child: Text(label, overflow: TextOverflow.ellipsis, maxLines: 1)),
           ]);
-    return SizedBox(
+    return Pressable(
+      enabled: !busy && onPressed != null,
+      scale: 0.97,
+      child: SizedBox(
       width: double.infinity,
       height: height,
       child: outlined
@@ -236,7 +244,7 @@ class RwButton extends StatelessWidget {
               onPressed: busy ? null : onPressed,
               child: content,
             ),
-    );
+    ));
   }
 }
 
@@ -248,7 +256,10 @@ class RwSmallButton extends StatelessWidget {
   const RwSmallButton(this.label, {super.key, this.onPressed, this.busy = false});
 
   @override
-  Widget build(BuildContext context) => FilledButton(
+  Widget build(BuildContext context) => Pressable(
+      enabled: !busy && onPressed != null,
+      scale: 0.94,
+      child: FilledButton(
         style: FilledButton.styleFrom(
           backgroundColor: kRed,
           foregroundColor: Colors.white,
@@ -261,7 +272,7 @@ class RwSmallButton extends StatelessWidget {
         child: busy
             ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
             : Text(label),
-      );
+      ));
 }
 
 /// Kotak kecil berisi ikon (navy, dekoratif).

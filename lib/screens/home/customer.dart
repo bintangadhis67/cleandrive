@@ -7,6 +7,7 @@ import '../../core/theme.dart';
 import '../../models/loyalty_models.dart';
 import '../../models/models.dart';
 import '../../models/notification_models.dart';
+import '../../widgets/motion.dart';
 import '../../widgets/widgets.dart';
 import '../notifications/notifications.dart';
 import '../orders/orders.dart';
@@ -127,7 +128,15 @@ class _HomeScreenState extends State<HomeScreen> {
         page = AkunTab(onGo: _go);
     }
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 220),
+      duration: const Duration(milliseconds: 260),
+      // Pindah tab: halaman baru memudar sambil bergeser tipis dari kanan.
+      transitionBuilder: (child, anim) => FadeTransition(
+        opacity: anim,
+        child: SlideTransition(
+          position: Tween<Offset>(begin: const Offset(.04, 0), end: Offset.zero).animate(anim),
+          child: child,
+        ),
+      ),
       child: KeyedSubtree(key: ValueKey(_idx), child: page),
     );
   }
@@ -136,7 +145,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final on = _idx == i;
     final c = on ? kRed : kRwSub;
     return Expanded(
-      child: InkWell(
+      child: Pressable(
+        scale: 0.9,
+        child: InkWell(
         borderRadius: BorderRadius.circular(24),
         onTap: () => _go(i),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -151,7 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
             decoration: BoxDecoration(color: kRed, borderRadius: BorderRadius.circular(3)),
           ),
         ]),
-      ),
+      )),
     );
   }
 
@@ -192,7 +203,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             Positioned(
               top: 0,
-              child: GestureDetector(
+              child: Pressable(
+                scale: 0.9,
+                child: GestureDetector(
                 onTap: () => _go(2),
                 child: Container(
                   width: 58,
@@ -206,7 +219,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   child: const Icon(Icons.directions_car_filled_rounded, color: Colors.white, size: 30),
                 ),
-              ),
+              )),
             ),
           ]),
         ),

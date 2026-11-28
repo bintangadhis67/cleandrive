@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/app_state.dart';
 import '../../core/theme.dart';
 import '../../models/models.dart';
+import '../../widgets/hero_car.dart';
+import '../../widgets/motion.dart';
 import '../../widgets/widgets.dart';
 import '../orders/orders.dart';
 import '../outlet/outlet.dart';
@@ -69,14 +71,8 @@ class HomeHero extends StatelessWidget {
               ),
             ),
           ),
-          // mobil + percikan air (aset)
-          Positioned(
-            right: wide ? -10 : -34,
-            bottom: 0,
-            child: IgnorePointer(
-              child: Image.asset('assets/images/home_hero_car.png', width: wide ? 620 : 340, fit: BoxFit.fitWidth),
-            ),
-          ),
+          // mobil + percikan air: sama seperti header Booking (besar, memenuhi tinggi header, tepi menyatu)
+          const Positioned.fill(child: HeroCarBackdrop()),
           Padding(
             padding: wide ? const EdgeInsets.fromLTRB(26, 22, 20, 30) : EdgeInsets.fromLTRB(16, top + 10, 12, 22),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -96,8 +92,13 @@ class HomeHero extends StatelessWidget {
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text('Halo, $first!',
                         maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white, fontSize: wide ? 24 : 20, fontWeight: FontWeight.w800)),
-                    Text('Selamat datang kembali 👋',
-                        maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white, fontSize: wide ? 14 : 12.5)),
+                    Text(
+                        app.isNewUser
+                            ? 'Selamat datang di CleanDrive! 🎉 Yuk klaim bonus Coins dan booking cuci pertamamu.'
+                            : 'Selamat datang kembali 👋 Kendaraanmu siap kinclong lagi, yuk booking cuci hari ini!',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: Colors.white, fontSize: wide ? 14 : 12.5, height: 1.25)),
                   ]),
                 ),
                 IconButton(
@@ -228,7 +229,9 @@ class HomeQuickAccess extends StatelessWidget {
         ]),
       );
 
-  Widget _tile(QuickItem it) => Container(
+  Widget _tile(QuickItem it) => Pressable(
+      scale: 0.94,
+      child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
@@ -272,7 +275,7 @@ class HomeQuickAccess extends StatelessWidget {
             ),
           ),
         ),
-      );
+      ));
 }
 
 // ---------------------------------------------------------------------------

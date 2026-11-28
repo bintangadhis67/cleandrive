@@ -5,6 +5,7 @@ import '../../core/app_state.dart';
 import '../../core/theme.dart';
 import '../../models/notification_models.dart';
 import '../../widgets/nav_header.dart';
+import '../../widgets/motion.dart';
 import '../../widgets/widgets.dart';
 import '../orders/orders.dart';
 import '../rewards/loyalty.dart';
@@ -113,6 +114,8 @@ class NotificationScreen extends StatefulWidget {
 
 class _NotificationScreenState extends State<NotificationScreen> {
   int _filter = 0;
+  int _gen = 0; // naik tiap ganti filter, supaya kartu masuk ulang dengan animasi
+  final Object _token = Object(); // pembeda tiap kali layar Notifikasi dibuka
   static const _labels = ['Semua', 'Pesanan', 'Pembayaran', 'Voucher', 'Coins & Promo', 'Membership'];
   static const _icons = <IconData?>[
     null,
@@ -145,21 +148,36 @@ class _NotificationScreenState extends State<NotificationScreen> {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: GestureDetector(
-        onTap: () => setState(() => _filter = i),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 9),
-          decoration: BoxDecoration(
-            color: sel ? kRed : Colors.transparent,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: sel ? kRed : Colors.white.withValues(alpha: .75), width: 1.3),
-            boxShadow: sel ? const [BoxShadow(color: Color(0x55C62026), blurRadius: 10, offset: Offset(0, 4))] : null,
+        onTap: () {
+          if (_filter == i) return;
+          setState(() {
+            _filter = i;
+            _gen++;
+          });
+        },
+        // Menyusut saat ditekan + berdenyut kecil saat terpilih.
+        child: Pressable(
+          scale: 0.94,
+          child: Pop(
+            trigger: sel,
+            enabled: sel,
+            amount: 1.08,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 9),
+              decoration: BoxDecoration(
+                color: sel ? kRed : Colors.transparent,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: sel ? kRed : Colors.white.withValues(alpha: .75), width: 1.3),
+                boxShadow: sel ? const [BoxShadow(color: Color(0x55C62026), blurRadius: 10, offset: Offset(0, 4))] : null,
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                if (icon != null) ...[Icon(icon, size: 16, color: Colors.white), const SizedBox(width: 6)],
+                Text(_labels[i], style: TextStyle(fontWeight: sel ? FontWeight.w800 : FontWeight.w600, fontSize: 13, color: Colors.white)),
+              ]),
+            ),
           ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            if (icon != null) ...[Icon(icon, size: 16, color: Colors.white), const SizedBox(width: 6)],
-            Text(_labels[i], style: TextStyle(fontWeight: sel ? FontWeight.w800 : FontWeight.w600, fontSize: 13, color: Colors.white)),
-          ]),
         ),
       ),
     );
@@ -276,12 +294,16 @@ class _NotificationScreenState extends State<NotificationScreen> {
             return Column(children: [
               _header(context, pad),
               Expanded(
-                child: ListenableBuilder(
+                // Ganti filter: daftar bergeser sesuai arah pil (Semua, Pesanan, Pembayaran, dst).
+                child: SwipeSwitcher(
+                  index: _filter,
+                  child: ListenableBuilder(
                   listenable: app,
                   builder: (context, _) {
                     final list = app.notifications.where(_match).toList();
                     final children = <Widget>[];
                     String? lastGroup;
+                    var pos = 0; // urutan kartu, dipakai untuk jeda masuk bertahap
                     for (final n in list) {
                       final g = _group(n.createdAt);
                       if (g != lastGroup) {
@@ -291,7 +313,16 @@ class _NotificationScreenState extends State<NotificationScreen> {
                         ));
                         lastGroup = g;
                       }
-                      children.add(_tile(n));
+                      // Key dipasang di pembungkus agar kartu yang dihapus tidak menggeser animasi kartu lain.
+                      children.add(FadeSlideIn(
+                        key: ValueKey('fs-${n.id}'),
+                        playOnce: (_token, _gen, n.id),
+                        delay: Duration(milliseconds: 40 * (pos < 8 ? pos : 8)),
+                        duration: const Duration(milliseconds: 360),
+                        dy: 14,
+                        child: _tile(n),
+                      ));
+                      pos++;
                     }
                     return RefreshIndicator(
                       color: kRwNavy,
@@ -307,7 +338,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                           : ListView(padding: EdgeInsets.fromLTRB(pad, 16, pad, 24), children: children),
                     );
                   },
-                ),
+                )),
               ),
             ]);
           }),
